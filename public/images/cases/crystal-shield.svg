@@ -1,0 +1,14 @@
+<svg width="800" height="900" viewBox="0 0 800 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="900" rx="48" fill="#F8FAFC"/>
+  <rect x="200" y="80" width="400" height="740" rx="96" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="10"/>
+  <rect x="232" y="118" width="336" height="664" rx="78" fill="#111827"/>
+  <rect x="250" y="136" width="300" height="628" rx="70" fill="url(#crystal)"/>
+  <path d="M364 248L392 292L432 300L404 332L414 372L364 356L314 372L324 332L296 300L336 292L364 248Z" fill="#FFFFFF" fill-opacity="0.85"/>
+  <defs>
+    <linearGradient id="crystal" x1="250" y1="136" x2="550" y2="764" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="0.5" stop-color="#E0F2FE"/>
+      <stop offset="1" stop-color="#BFDBFE"/>
+    </linearGradient>
+  </defs>
+</svg>

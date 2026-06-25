@@ -1,0 +1,15 @@
+<svg width="800" height="900" viewBox="0 0 800 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="900" rx="48" fill="#F8FAFC"/>
+  <rect x="200" y="80" width="400" height="740" rx="96" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="10"/>
+  <rect x="232" y="118" width="336" height="664" rx="78" fill="#111827"/>
+  <rect x="248" y="134" width="304" height="632" rx="70" fill="url(#marble)"/>
+  <path d="M316 238C346 204 390 204 420 238C450 272 462 330 438 370C414 410 384 458 368 508C352 458 322 410 298 370C274 330 286 272 316 238Z" fill="#FFFFFF" fill-opacity="0.75"/>
+  <path d="M388 218C410 192 446 194 468 220C490 246 492 284 476 320C460 356 434 392 404 420C374 392 348 356 332 320C316 284 330 248 388 218Z" fill="#CFFAFE" fill-opacity="0.65"/>
+  <defs>
+    <linearGradient id="marble" x1="248" y1="134" x2="552" y2="766" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="0.5" stop-color="#E2E8F0"/>
+      <stop offset="1" stop-color="#CBD5E1"/>
+    </linearGradient>
+  </defs>
+</svg>

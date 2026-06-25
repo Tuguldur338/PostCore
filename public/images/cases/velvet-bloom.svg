@@ -1,0 +1,16 @@
+<svg width="800" height="900" viewBox="0 0 800 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="900" rx="48" fill="#FDF2F8"/>
+  <rect x="200" y="80" width="400" height="740" rx="96" fill="#FFFFFF" stroke="#FBCFE8" stroke-width="10"/>
+  <rect x="232" y="118" width="336" height="664" rx="78" fill="#111827"/>
+  <rect x="250" y="136" width="300" height="628" rx="70" fill="url(#velvet)"/>
+  <path d="M360 274C330 244 300 232 280 242C260 252 264 284 288 314C312 344 348 356 372 354C396 352 404 328 396 304C388 280 384 262 360 274Z" fill="#F9A8D4" fill-opacity="0.8"/>
+  <path d="M464 286C492 256 532 246 546 264C560 282 548 316 522 338C496 360 454 370 436 348C418 326 430 298 464 286Z" fill="#E879F9" fill-opacity="0.75"/>
+  <path d="M340 392C380 356 430 354 470 392" stroke="#FFF1F2" stroke-width="16" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="velvet" x1="250" y1="136" x2="550" y2="764" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FBCFE8"/>
+      <stop offset="0.55" stop-color="#F9A8D4"/>
+      <stop offset="1" stop-color="#C084FC"/>
+    </linearGradient>
+  </defs>
+</svg>

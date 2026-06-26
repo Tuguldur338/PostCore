@@ -39,6 +39,12 @@ export function Header() {
             Home
           </Link>
           <Link
+            href="/sell"
+            className="rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
+          >
+            Sell
+          </Link>
+          <Link
             href="/contacts"
             className="rounded-full px-3 py-2 transition hover:bg-white/10 hover:text-white"
           >

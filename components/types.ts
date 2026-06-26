@@ -9,6 +9,7 @@ export type User = {
 export type AuthMode = "login" | "register";
 
 export type Product = {
+  id: string;
   name: string;
   price: string;
   badge: string;

@@ -1,5 +1,5 @@
 import type { ChangeEvent, FormEvent } from "react";
-import type { AuthForm, AuthMode, User } from "./types";
+import type { AuthForm, AuthMode, DeliveryAddress, User } from "./types";
 
 type AuthPanelProps = {
   currentUser: User | null;
@@ -11,6 +11,13 @@ type AuthPanelProps = {
   onInputChange: (field: keyof AuthForm, value: string) => void;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onLogout: () => void;
+  deliveryAddress: DeliveryAddress;
+  deliveryStatus: string;
+  onDeliveryAddressChange: (
+    field: keyof DeliveryAddress,
+    value: string,
+  ) => void;
+  onDeliveryAddressSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
 function getInitials(name: string) {
@@ -32,6 +39,10 @@ export function Account({
   onInputChange,
   onImageChange,
   onLogout,
+  deliveryAddress,
+  deliveryStatus,
+  onDeliveryAddressChange,
+  onDeliveryAddressSubmit,
 }: AuthPanelProps) {
   if (currentUser) {
     return (
@@ -61,7 +72,7 @@ export function Account({
           </div>
         </div>
 
-        <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600 transition hover:border-sky-400 hover:bg-sky-50">
+        <label className="flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-600 transition-colors duration-200 ease-out hover:border-sky-400 hover:bg-sky-50">
           <span className="font-semibold text-slate-900">
             Change profile picture
           </span>
@@ -77,10 +88,119 @@ export function Account({
           />
         </label>
 
+        <section className="rounded-3xl border border-slate-200 bg-white p-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-600">
+              Delivery address
+            </p>
+            <h3 className="mt-1 text-xl font-semibold text-slate-900">
+              Where should your order go?
+            </h3>
+          </div>
+          <form className="mt-4 space-y-3" onSubmit={onDeliveryAddressSubmit}>
+            <input
+              required
+              autoComplete="name"
+              value={deliveryAddress.recipient}
+              onChange={(event) =>
+                onDeliveryAddressChange("recipient", event.target.value)
+              }
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+              placeholder="Your name or the recipient name"
+              aria-label="Recipient's name"
+            />
+            <input
+              required
+              autoComplete="street-address"
+              value={deliveryAddress.street}
+              onChange={(event) =>
+                onDeliveryAddressChange("street", event.target.value)
+              }
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+              placeholder="Street address"
+              aria-label="Street address"
+            />
+            <input
+              autoComplete="address-line2"
+              value={deliveryAddress.apartment}
+              onChange={(event) =>
+                onDeliveryAddressChange("apartment", event.target.value)
+              }
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+              placeholder="Apartment, suite, etc. (optional)"
+              aria-label="Apartment, suite, or unit"
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                required
+                autoComplete="address-level2"
+                value={deliveryAddress.city}
+                onChange={(event) =>
+                  onDeliveryAddressChange("city", event.target.value)
+                }
+                className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+                placeholder="City"
+                aria-label="City"
+              />
+              <input
+                required
+                autoComplete="address-level1"
+                value={deliveryAddress.region}
+                onChange={(event) =>
+                  onDeliveryAddressChange("region", event.target.value)
+                }
+                className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+                placeholder="State / province"
+                aria-label="State or province"
+              />
+              <input
+                required
+                autoComplete="postal-code"
+                value={deliveryAddress.postalCode}
+                onChange={(event) =>
+                  onDeliveryAddressChange("postalCode", event.target.value)
+                }
+                className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+                placeholder="Postal code"
+                aria-label="Postal code"
+              />
+              <input
+                required
+                autoComplete="country-name"
+                value={deliveryAddress.country}
+                onChange={(event) =>
+                  onDeliveryAddressChange("country", event.target.value)
+                }
+                className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+                placeholder="Country"
+                aria-label="Country"
+              />
+            </div>
+            <textarea
+              value={deliveryAddress.instructions}
+              onChange={(event) =>
+                onDeliveryAddressChange("instructions", event.target.value)
+              }
+              className="min-h-20 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+              placeholder="Delivery instructions (optional)"
+              aria-label="Delivery instructions"
+            />
+            <button
+              type="submit"
+              className="smooth-transition w-full rounded-2xl bg-sky-600 px-4 py-3 font-semibold text-white transition-colors duration-200 ease-out hover:bg-sky-700"
+            >
+              Save delivery address
+            </button>
+            <p aria-live="polite" className="text-sm text-slate-600">
+              {deliveryStatus}
+            </p>
+          </form>
+        </section>
+
         <button
           type="button"
           onClick={onLogout}
-          className="w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition hover:bg-slate-700"
+          className="smooth-transition w-full rounded-2xl bg-slate-900 px-4 py-3 font-semibold text-white transition-colors duration-200 ease-out hover:bg-slate-700"
         >
           Log out
         </button>
@@ -104,14 +224,14 @@ export function Account({
         <button
           type="button"
           onClick={() => onModeChange("login")}
-          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${mode === "login" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+          className={`smooth-transition flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 ease-out ${mode === "login" ? "bg-slate-900 text-white" : "text-slate-600"}`}
         >
           Sign in
         </button>
         <button
           type="button"
           onClick={() => onModeChange("register")}
-          className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${mode === "register" ? "bg-slate-900 text-white" : "text-slate-600"}`}
+          className={`smooth-transition flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 ease-out ${mode === "register" ? "bg-slate-900 text-white" : "text-slate-600"}`}
         >
           Register
         </button>
@@ -124,7 +244,7 @@ export function Account({
               Full name
             </label>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition focus:border-sky-400"
+              className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
               type="text"
               value={form.name}
               onChange={(event) => onInputChange("name", event.target.value)}
@@ -138,7 +258,7 @@ export function Account({
             Email
           </label>
           <input
-            className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition focus:border-sky-400"
+            className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
             type="email"
             value={form.email}
             onChange={(event) => onInputChange("email", event.target.value)}
@@ -151,7 +271,7 @@ export function Account({
             Password
           </label>
           <input
-            className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition focus:border-sky-400"
+            className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
             type="password"
             value={form.password}
             onChange={(event) => onInputChange("password", event.target.value)}
@@ -165,7 +285,7 @@ export function Account({
               Confirm password
             </label>
             <input
-              className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition focus:border-sky-400"
+              className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
               type="password"
               value={form.confirmPassword}
               onChange={(event) =>
@@ -178,7 +298,7 @@ export function Account({
 
         <button
           type="submit"
-          className="w-full rounded-2xl bg-sky-600 px-4 py-3 font-semibold text-white transition hover:bg-sky-700"
+          className="smooth-transition w-full rounded-2xl bg-sky-600 px-4 py-3 font-semibold text-white transition-colors duration-200 ease-out hover:bg-sky-700"
         >
           {mode === "register" ? "Create account" : "Sign in"}
         </button>

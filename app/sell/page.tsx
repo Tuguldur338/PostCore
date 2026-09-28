@@ -3,6 +3,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
+import { readProducts, writeProducts } from "@/components/product-store";
 import type { Product, User } from "@/components/types";
 
 type ProductFormState = {
@@ -17,9 +18,10 @@ type ProductFormState = {
   deliveryMethod: string;
 };
 
-const productsStorageKey = "postcore-cases";
 const sessionKey = "postcore-current-user";
 const usersStorageKey = "postcore-users";
+const maxImageDimension = 1280;
+const maxImageDataUrlLength = 220_000;
 
 const emptyProductForm: ProductFormState = {
   name: "",
@@ -33,22 +35,6 @@ const emptyProductForm: ProductFormState = {
   deliveryMethod: "",
 };
 
-function readProducts(): Product[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(productsStorageKey);
-    return raw ? (JSON.parse(raw) as Product[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeProducts(products: Product[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(productsStorageKey, JSON.stringify(products));
-}
-
 function readUsers(): User[] {
   if (typeof window === "undefined") return [];
 
@@ -60,11 +46,69 @@ function readUsers(): User[] {
   }
 }
 
+function compressImage(source: Blob | string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const shouldRevokeUrl = typeof source !== "string";
+    const imageSource =
+      typeof source === "string" ? source : URL.createObjectURL(source);
+    const image = new window.Image();
+
+    const releaseSource = () => {
+      if (shouldRevokeUrl) URL.revokeObjectURL(imageSource);
+    };
+
+    image.onload = () => {
+      try {
+        const largestDimension = Math.max(
+          image.naturalWidth,
+          image.naturalHeight,
+        );
+        let scale = Math.min(1, maxImageDimension / largestDimension);
+        let compressedImage = "";
+
+        for (let resizeAttempt = 0; resizeAttempt < 6; resizeAttempt += 1) {
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+          const context = canvas.getContext("2d");
+          if (!context) throw new Error("Image compression is unavailable.");
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+          for (const quality of [0.8, 0.68, 0.55]) {
+            compressedImage = canvas.toDataURL("image/webp", quality);
+            if (compressedImage.length <= maxImageDataUrlLength) {
+              resolve(compressedImage);
+              return;
+            }
+          }
+
+          scale *= 0.75;
+        }
+
+        throw new Error("Image is too large to store.");
+      } catch (error) {
+        reject(error);
+      } finally {
+        releaseSource();
+      }
+    };
+
+    image.onerror = () => {
+      releaseSource();
+      reject(new Error("This image could not be processed."));
+    };
+    image.src = imageSource;
+  });
+}
+
 export default function SellPage() {
   const [productForm, setProductForm] =
     useState<ProductFormState>(emptyProductForm);
   const [status, setStatus] = useState("Add a phone case to start selling.");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isCompressingImage, setIsCompressingImage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -75,7 +119,7 @@ export default function SellPage() {
         const parsedUser = JSON.parse(savedSession) as User;
         const users = readUsers();
         const matchedUser = users.find((user) => user.id === parsedUser.id);
-        setCurrentUser(matchedUser ?? parsedUser);
+        queueMicrotask(() => setCurrentUser(matchedUser ?? parsedUser));
       } catch {
         window.localStorage.removeItem(sessionKey);
       }
@@ -86,22 +130,28 @@ export default function SellPage() {
     setProductForm((previous) => ({ ...previous, [field]: value }));
   };
 
-  const handleImageSelect = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleImageSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
       setProductForm((previous) => ({ ...previous, image: "" }));
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const imageData = reader.result as string;
+    setIsCompressingImage(true);
+    setStatus("Optimizing photo for storage...");
+    try {
+      const imageData = await compressImage(file);
       setProductForm((previous) => ({ ...previous, image: imageData }));
-    };
-    reader.readAsDataURL(file);
+      setStatus("Photo ready to add.");
+    } catch {
+      setProductForm((previous) => ({ ...previous, image: "" }));
+      setStatus("This photo could not be optimized. Try another image.");
+    } finally {
+      setIsCompressingImage(false);
+    }
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!currentUser) {
@@ -119,6 +169,8 @@ export default function SellPage() {
       return;
     }
 
+    setIsSaving(true);
+
     const newProduct: Product = {
       id: crypto.randomUUID(),
       name: productForm.name.trim(),
@@ -129,6 +181,7 @@ export default function SellPage() {
       image: productForm.image,
       category: productForm.category.trim() || "Phone case",
       fitsFor: productForm.fitsFor.trim() || "Most phones",
+      sellerEmail: currentUser.email.trim().toLowerCase(),
     };
 
     const deliveryNote = [
@@ -149,14 +202,35 @@ export default function SellPage() {
         : newProduct.description,
     };
 
-    const nextProducts = [productWithDelivery, ...readProducts()];
-    writeProducts(nextProducts);
-    setProductForm(emptyProductForm);
-    setStatus(`${newProduct.name} was added to your sell list.`);
+    try {
+      const existingProducts = await Promise.all(
+        readProducts().map(async (product) => ({
+          ...product,
+          image: product.image.startsWith("data:")
+            ? await compressImage(product.image)
+            : product.image,
+        })),
+      );
+      const nextProducts = [productWithDelivery, ...existingProducts];
+
+      if (!writeProducts(nextProducts)) {
+        setStatus(
+          "Browser storage is full. Try a smaller photo or remove older listings.",
+        );
+        return;
+      }
+
+      setProductForm(emptyProductForm);
+      setStatus(`${newProduct.name} was added to your sell list.`);
+    } catch {
+      setStatus("The listing could not be saved. Try a smaller photo.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,0.16),_transparent_30%),linear-gradient(135deg,#f7f9fc_0%,#eef2f7_100%)] p-4 text-slate-800 sm:p-6 lg:p-8">
+    <div className="site-shell min-h-screen p-4 text-slate-800 sm:p-6 lg:p-8">
       <main className="mx-auto flex max-w-6xl flex-col gap-6">
         <Header />
 
@@ -238,9 +312,10 @@ export default function SellPage() {
                 accept="image/*"
                 onChange={handleImageSelect}
                 className="w-full text-sm"
+                disabled={isCompressingImage || isSaving}
               />
               <p className="mt-2 text-xs text-slate-500">
-                A photo is required for every listing.
+                A photo is required. Large photos are optimized before saving.
               </p>
             </label>
 
@@ -283,10 +358,16 @@ export default function SellPage() {
               <p className="text-sm text-slate-600">{status}</p>
               <button
                 type="submit"
-                disabled={!currentUser}
-                className="rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={!currentUser || isCompressingImage || isSaving}
+                className="smooth-transition rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-out hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
-                {currentUser ? "Add product" : "Sign in to sell"}
+                {!currentUser
+                  ? "Sign in to sell"
+                  : isCompressingImage
+                    ? "Optimizing photo..."
+                    : isSaving
+                      ? "Saving..."
+                      : "Add product"}
               </button>
             </div>
           </form>

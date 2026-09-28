@@ -34,4 +34,18 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
 # PostCore
+
+## Gmail order notifications
+
+Purchase requests are completed only after the server emails the seller. Add these settings to `.env.local`:
+
+```env
+GMAIL_USER=your-sender@gmail.com
+GMAIL_APP_PASSWORD=your-google-app-password
+# Optional fallback for older listings without a seller email
+SELLER_NOTIFICATION_EMAIL=your-inbox@gmail.com
+```
+
+New listings are tied to the signed-in seller's account email, and purchase requests are emailed to that address. The fallback inbox is used only for older listings without a seller email. Create a Google App Password for `GMAIL_USER` with 2-Step Verification enabled; do not use your regular Gmail password. `.env.local` is ignored by Git. Restart the development server after setting these values. Without the Gmail settings, the form reports that the email was not sent and does not mark the request complete. The site does not process payments or keep a shared order database; the email is the purchase request sent to the seller. Accounts in this prototype are browser-local and do not verify ownership of their email address.

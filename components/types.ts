@@ -4,6 +4,18 @@ export type User = {
   email: string;
   password: string;
   image?: string;
+  deliveryAddress?: DeliveryAddress;
+};
+
+export type DeliveryAddress = {
+  recipient: string;
+  street: string;
+  apartment: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  country: string;
+  instructions: string;
 };
 
 export type AuthMode = "login" | "register";
@@ -17,6 +29,7 @@ export type Product = {
   image: string;
   category: string;
   fitsFor: string;
+  sellerEmail?: string;
 };
 
 export type AuthForm = {

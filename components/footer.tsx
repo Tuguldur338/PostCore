@@ -20,17 +20,26 @@ export function Footer() {
             </p>
             <ul className="mt-3 space-y-2">
               <li>
-                <a href="#home" className="transition hover:text-white">
+                <a
+                  href="#home"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   Help center
                 </a>
               </li>
               <li>
-                <a href="#cases" className="transition hover:text-white">
+                <a
+                  href="#cases"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   Shipping info
                 </a>
               </li>
               <li>
-                <a href="#account" className="transition hover:text-white">
+                <a
+                  href="#account"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   Contact us
                 </a>
               </li>
@@ -43,17 +52,26 @@ export function Footer() {
             </p>
             <ul className="mt-3 space-y-2">
               <li>
-                <a href="/sell" className="transition hover:text-white">
+                <a
+                  href="/sell"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   Add a product
                 </a>
               </li>
               <li>
-                <a href="/account" className="transition hover:text-white">
+                <a
+                  href="/account"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   Seller account
                 </a>
               </li>
               <li>
-                <a href="/contacts" className="transition hover:text-white">
+                <a
+                  href="/contacts"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   Support team
                 </a>
               </li>
@@ -66,17 +84,26 @@ export function Footer() {
             </p>
             <ul className="mt-3 space-y-2">
               <li>
-                <a href="#home" className="transition hover:text-white">
+                <a
+                  href="#home"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   Instagram
                 </a>
               </li>
               <li>
-                <a href="#cases" className="transition hover:text-white">
+                <a
+                  href="#cases"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   TikTok
                 </a>
               </li>
               <li>
-                <a href="#account" className="transition hover:text-white">
+                <a
+                  href="#account"
+                  className="transition-colors duration-200 ease-out hover:text-white"
+                >
                   Pinterest
                 </a>
               </li>

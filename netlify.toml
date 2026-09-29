@@ -1,0 +1,5 @@
+[build.environment]
+  # The seller notification address is not a credential. Its current value is a
+  # short, common string that also appears in third-party plugin files, which
+  # caused secrets scanning to fail the build.
+  SECRETS_SCAN_OMIT_KEYS = "SELLER_NOTIFICATION_EMAIL"

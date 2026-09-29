@@ -13,7 +13,7 @@ export default function ContactsPage() {
             Contact
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            Reach the CaseCart team
+            Reach the PostCore team
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
             Need help with a listing, account setup, or anything else? Send us a
@@ -24,7 +24,7 @@ export default function ContactsPage() {
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-6">
               <h2 className="text-xl font-semibold text-slate-900">Email</h2>
               <p className="mt-2 text-sm leading-7 text-slate-600">
-                hello@casecart.example
+                hello@postcore.student
               </p>
             </div>
             <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-6">

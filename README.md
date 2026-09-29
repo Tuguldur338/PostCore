@@ -37,15 +37,19 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 # PostCore
 
-## Gmail order notifications
+## Purchase requests
 
-Purchase requests are completed only after the server emails the seller. Add these settings to `.env.local`:
+Checkout sends the purchase request through the server using Resend. Add these settings to `.env.local`:
 
 ```env
-GMAIL_USER=your-sender@gmail.com
-GMAIL_APP_PASSWORD=your-google-app-password
+RESEND_API_KEY=re_your_api_key
+RESEND_FROM_EMAIL=orders@your-verified-domain.com
 # Optional fallback for older listings without a seller email
 SELLER_NOTIFICATION_EMAIL=your-inbox@gmail.com
 ```
 
-New listings are tied to the signed-in seller's account email, and purchase requests are emailed to that address. The fallback inbox is used only for older listings without a seller email. Create a Google App Password for `GMAIL_USER` with 2-Step Verification enabled; do not use your regular Gmail password. `.env.local` is ignored by Git. Restart the development server after setting these values. Without the Gmail settings, the form reports that the email was not sent and does not mark the request complete. The site does not process payments or keep a shared order database; the email is the purchase request sent to the seller. Accounts in this prototype are browser-local and do not verify ownership of their email address.
+Create a Resend account and API key, verify a sending domain, and use an address on that domain for `RESEND_FROM_EMAIL`. New listings use the signed-in seller's account email. If server email is unavailable, checkout provides a prefilled email draft link; the buyer must open and send it. Built-in sample listings have no seller contact and cannot accept purchase requests. Keep the API key private in `.env.local`, which is ignored by Git, and restart the development server after setting the values. The site does not process payments or keep a shared order database.
+
+## Admin and selling
+
+The first account to establish a signed-in session in a browser is assigned the marketplace admin role. Only that account can create listings; later accounts are student accounts. Accounts and roles are stored in that browser's local storage, so this is suitable only for a local prototype. A shared school-wide admin and secure role enforcement require server-side authentication and shared persistent storage. Accounts in this prototype do not verify ownership of their email address.

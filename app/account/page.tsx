@@ -13,11 +13,11 @@ export default function AccountPage() {
             Account
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-            Manage your seller profile
+            Manage your student seller profile
           </h1>
           <p className="mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-            Sign in, update your profile picture, and keep your resale presence
-            polished from one simple place.
+            Sign in, update your profile picture, and keep your campus resale
+            presence polished from one simple place.
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-2">

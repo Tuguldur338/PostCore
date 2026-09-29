@@ -1,28 +1,29 @@
 import type { Product } from "./types";
 
-const productsStorageKey = "postcore-cases";
+const productsStorageKey = "postcore-student-items";
 
 export const seedProducts: Product[] = [
   {
     id: "seed-1",
-    name: "Arctic Frost",
-    price: "$24.99",
+    name: "Campus Notes Pack",
+    price: "12990",
     badge: "New",
-    description: "A frosted finish that stays slim and feels premium in hand.",
-    image: "/images/cases/arctic-frost.svg",
-    category: "Slim",
-    fitsFor: "iPhone 15 / Galaxy S24",
+    description:
+      "A ready-to-go study set with notebook pages, tabs, and extras.",
+    image: "/images/student/campus-notes.svg",
+    category: "School Supplies",
+    fitsFor: "Class notes / study sessions",
   },
   {
     id: "seed-2",
-    name: "Carbon Edge",
-    price: "$29.99",
+    name: "Snack Box Bundle",
+    price: "18500",
     badge: "Best seller",
     description:
-      "Shock-resistant protection with a sleek matte carbon texture.",
-    image: "/images/cases/carbon-edge.svg",
-    category: "Protective",
-    fitsFor: "iPhone 14 Pro / Pixel 8",
+      "A mix of student-friendly snacks for late nights and long study days.",
+    image: "/images/student/snack-box.svg",
+    category: "Snacks",
+    fitsFor: "Dorms / study breaks / campus life",
   },
 ];
 
@@ -31,7 +32,7 @@ export function readProducts(): Product[] {
 
   try {
     const raw = window.localStorage.getItem(productsStorageKey);
-    if (!raw) return [];
+    if (raw === null) return seedProducts;
 
     const products = JSON.parse(raw) as unknown;
     return Array.isArray(products) ? (products as Product[]) : [];

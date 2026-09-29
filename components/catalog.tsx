@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckoutDialog } from "./checkout";
+import { formatMntPrice, parseMntAmount } from "./currency";
 import type { Product } from "./types";
 
 const favoritesStorageKey = "postcore-favorites";
@@ -68,6 +69,9 @@ type CatalogProps = {
   initialView?: "all" | "saved";
   showViewSwitch?: boolean;
   showProductCards?: boolean;
+  canManageListings?: boolean;
+  onAvailabilityChange?: (productId: string, outOfStock: boolean) => void;
+  onRemoveProduct?: (productId: string) => void;
 };
 
 export function Catalog({
@@ -75,6 +79,9 @@ export function Catalog({
   initialView = "all",
   showViewSwitch = true,
   showProductCards = true,
+  canManageListings = false,
+  onAvailabilityChange,
+  onRemoveProduct,
 }: CatalogProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
@@ -120,10 +127,7 @@ export function Catalog({
     return [...filtered].sort((first, second) => {
       if (sort === "name") return first.name.localeCompare(second.name);
       if (sort === "price") {
-        return (
-          Number.parseFloat(first.price.replace(/[^0-9.]/g, "")) -
-          Number.parseFloat(second.price.replace(/[^0-9.]/g, ""))
-        );
+        return parseMntAmount(first.price) - parseMntAmount(second.price);
       }
       return 0;
     });
@@ -145,7 +149,7 @@ export function Catalog({
   ).length;
 
   const shareProduct = async (product: Product) => {
-    const shareText = `${product.name} - ${product.price}`;
+    const shareText = `${product.name} - ${formatMntPrice(product.price)}`;
     if (navigator.share) {
       await navigator.share({ title: product.name, text: shareText });
       return;
@@ -154,6 +158,7 @@ export function Catalog({
   };
 
   const startCheckout = (product: Product) => {
+    if (product.outOfStock) return;
     setSelectedProduct(null);
     setCheckoutProduct(product);
   };
@@ -163,23 +168,23 @@ export function Catalog({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-sky-600">
-            {showSavedOnly ? "Your saved cases" : "Your catalog"}
+            {showSavedOnly ? "Your saved items" : "Your catalog"}
           </p>
           <h2 className="mt-1 text-2xl font-semibold text-slate-900">
             {showSavedOnly
-              ? "Cases you want to come back to"
-              : "Phone cases you're ready to sell"}
+              ? "Student finds you want to come back to"
+              : "School supplies and snacks you're ready to sell"}
           </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-            {visibleProducts.length} of {products.length} cases
+            {visibleProducts.length} of {products.length} items
           </span>
           {showViewSwitch ? (
             <div
               className="flex rounded-full bg-slate-100 p-1"
               role="group"
-              aria-label="Case collection"
+              aria-label="Student essentials collection"
             >
               <button
                 type="button"
@@ -187,7 +192,7 @@ export function Catalog({
                 onClick={() => setShowSavedOnly(false)}
                 className={`rounded-full px-3 py-1.5 text-sm font-semibold transition-colors ${!showSavedOnly ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
               >
-                All cases
+                All items
               </button>
               <button
                 type="button"
@@ -207,7 +212,7 @@ export function Catalog({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition-colors duration-200 ease-out focus:border-orange-400"
-          placeholder="Search cases, styles, or phone models"
+          placeholder="Search supplies, snacks, or essentials"
           aria-label="Search catalog"
         />
         <FilterMenu
@@ -227,37 +232,40 @@ export function Catalog({
       {!showProductCards ? (
         <div className="mt-6 flex min-h-56 items-center justify-center px-6 text-center">
           <p className="text-lg font-semibold text-slate-600">
-            There are no phone cases yet...
+            There are no student items yet...
           </p>
         </div>
       ) : products.length === 0 ? (
         <div className="mt-6 rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-600">
-          No cases yet. Add one above to start building your storefront.
+          No items yet. Add one above to start building your storefront.
         </div>
       ) : visibleProducts.length === 0 ? (
         <div className="mt-6 rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-600">
           {showSavedOnly && savedProductsCount === 0 ? (
             <>
-              <p>You haven&apos;t saved any cases yet.</p>
+              <p>You haven&apos;t saved any items yet.</p>
               {showViewSwitch ? (
                 <button
                   type="button"
                   onClick={() => setShowSavedOnly(false)}
                   className="mt-3 font-semibold text-orange-600 hover:text-orange-700"
                 >
-                  Browse all cases
+                  Browse all items
                 </button>
               ) : (
                 <Link
                   href="/products"
                   className="mt-3 inline-block font-semibold text-orange-600 hover:text-orange-700"
                 >
-                  Browse cases
+                  Browse items
                 </Link>
               )}
             </>
           ) : (
-            <p>No cases match that search. Try another style or phone model.</p>
+            <p>
+              No items match that search. Try another supply, snack, or
+              essential.
+            </p>
           )}
         </div>
       ) : (
@@ -270,9 +278,15 @@ export function Catalog({
               <div className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700">
-                      {product.price}
-                    </span>
+                    {product.outOfStock ? (
+                      <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700">
+                        Out of stock
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-sky-100 px-2.5 py-1 text-xs font-semibold text-sky-700">
+                        {formatMntPrice(product.price)}
+                      </span>
+                    )}
                     <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                       {product.category}
                     </span>
@@ -301,9 +315,10 @@ export function Catalog({
                 <button
                   type="button"
                   onClick={() => startCheckout(product)}
-                  className="mt-4 w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400"
+                  disabled={product.outOfStock}
+                  className="mt-4 w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  Buy now
+                  {product.outOfStock ? "Unavailable" : "Buy now"}
                 </button>
                 <div className="mt-2 flex gap-2">
                   <button
@@ -321,6 +336,28 @@ export function Catalog({
                     Share
                   </button>
                 </div>
+                {canManageListings ? (
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onAvailabilityChange?.(product.id, !product.outOfStock)
+                      }
+                      className="rounded-full border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-orange-400 hover:text-orange-700"
+                    >
+                      {product.outOfStock
+                        ? "Mark in stock"
+                        : "Mark out of stock"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveProduct?.(product.id)}
+                      className="rounded-full border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                    >
+                      Remove listing
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </article>
           ))}
@@ -359,7 +396,7 @@ export function Catalog({
               className="mt-5 aspect-[4/3] w-full rounded-2xl object-cover"
             />
             <p className="mt-5 text-lg font-semibold text-orange-600">
-              {selectedProduct.price}
+              {formatMntPrice(selectedProduct.price)}
             </p>
             <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">
               {selectedProduct.description}
@@ -371,9 +408,10 @@ export function Catalog({
             <button
               type="button"
               onClick={() => startCheckout(selectedProduct)}
-              className="mt-4 w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400"
+              disabled={selectedProduct.outOfStock}
+              className="mt-4 w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              Buy now
+              {selectedProduct.outOfStock ? "Unavailable" : "Buy now"}
             </button>
           </div>
         </div>

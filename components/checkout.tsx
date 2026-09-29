@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { formatMntPrice } from "./currency";
 import type { DeliveryAddress, Product } from "./types";
 
 const sessionStorageKey = "postcore-current-user";
@@ -30,6 +31,7 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
   const [deliveryAddress, setDeliveryAddress] =
     useState<DeliveryAddress>(emptyDeliveryAddress);
   const [orderReference, setOrderReference] = useState("");
+  const [emailDraftUrl, setEmailDraftUrl] = useState("");
   const [error, setError] = useState("");
   const [isSending, setIsSending] = useState(false);
 
@@ -58,9 +60,39 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
     setDeliveryAddress((previous) => ({ ...previous, [field]: value }));
   };
 
+  const createEmailDraftUrl = (requestReference: string) => {
+    const addressLines = [
+      deliveryAddress.recipient,
+      deliveryAddress.street,
+      deliveryAddress.apartment,
+      `${deliveryAddress.city}, ${deliveryAddress.region} ${deliveryAddress.postalCode}`,
+      deliveryAddress.country,
+      deliveryAddress.instructions,
+    ].filter(Boolean);
+    const subject = `Purchase request: ${product.name}`;
+    const body = [
+      `Hello, I would like to buy ${product.name}.`,
+      `Price: ${formatMntPrice(product.price)}`,
+      `Order reference: ${requestReference}`,
+      "",
+      "Delivery details:",
+      ...addressLines,
+    ].join("\n");
+    const recipient = product.sellerEmail?.trim();
+    if (!recipient) return "";
+
+    return `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
+    setEmailDraftUrl("");
+
+    if (!product.sellerEmail?.trim()) {
+      setError("This listing does not have seller contact details yet.");
+      return;
+    }
 
     setIsSending(true);
     const requestReference = crypto.randomUUID().slice(0, 8).toUpperCase();
@@ -71,7 +103,7 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
         body: JSON.stringify({
           orderReference: requestReference,
           productName: product.name,
-          price: product.price,
+          price: formatMntPrice(product.price),
           sellerEmail: product.sellerEmail,
           placedAt: new Date().toISOString(),
           deliveryAddress,
@@ -79,15 +111,19 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
       });
       const result = (await response.json()) as EmailNotificationResponse;
       if (!response.ok || result.sent !== true) {
+        setEmailDraftUrl(createEmailDraftUrl(requestReference));
         setError(
-          result.message ?? "The seller could not be notified by email.",
+          `${result.message ?? "The seller email could not be sent."} You can open a draft below and send it yourself.`,
         );
         return;
       }
 
       setOrderReference(requestReference);
     } catch {
-      setError("The email service could not be reached. Please try again.");
+      setEmailDraftUrl(createEmailDraftUrl(requestReference));
+      setError(
+        "The email service could not be reached. You can open a draft below and send it yourself.",
+      );
     } finally {
       setIsSending(false);
     }
@@ -132,7 +168,7 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
               Order reference: {orderReference}
             </p>
             <p className="mt-3 text-sm text-emerald-800">
-              No payment was collected. The seller will follow up with you.
+              The seller will follow up with you. No payment was collected.
             </p>
             <button
               type="button"
@@ -150,117 +186,135 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
                 <p className="mt-1 text-sm text-slate-500">{product.fitsFor}</p>
               </div>
               <p className="text-lg font-semibold text-orange-600">
-                {product.price}
+                {formatMntPrice(product.price)}
               </p>
             </div>
 
-            <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
-              <input
-                required
-                autoComplete="name"
-                value={deliveryAddress.recipient}
-                onChange={(event) =>
-                  handleAddressChange("recipient", event.target.value)
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                placeholder="Name on the package"
-                aria-label="Name on the package"
-              />
-              <input
-                required
-                autoComplete="street-address"
-                value={deliveryAddress.street}
-                onChange={(event) =>
-                  handleAddressChange("street", event.target.value)
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                placeholder="Street address"
-                aria-label="Street address"
-              />
-              <input
-                autoComplete="address-line2"
-                value={deliveryAddress.apartment}
-                onChange={(event) =>
-                  handleAddressChange("apartment", event.target.value)
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                placeholder="Apartment, suite, etc. (optional)"
-                aria-label="Apartment, suite, or unit"
-              />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <input
-                  required
-                  autoComplete="address-level2"
-                  value={deliveryAddress.city}
-                  onChange={(event) =>
-                    handleAddressChange("city", event.target.value)
-                  }
-                  className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="City"
-                  aria-label="City"
-                />
-                <input
-                  required
-                  autoComplete="address-level1"
-                  value={deliveryAddress.region}
-                  onChange={(event) =>
-                    handleAddressChange("region", event.target.value)
-                  }
-                  className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="State / province"
-                  aria-label="State or province"
-                />
-                <input
-                  required
-                  autoComplete="postal-code"
-                  value={deliveryAddress.postalCode}
-                  onChange={(event) =>
-                    handleAddressChange("postalCode", event.target.value)
-                  }
-                  className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="Postal code"
-                  aria-label="Postal code"
-                />
-                <input
-                  required
-                  autoComplete="country-name"
-                  value={deliveryAddress.country}
-                  onChange={(event) =>
-                    handleAddressChange("country", event.target.value)
-                  }
-                  className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="Country"
-                  aria-label="Country"
-                />
+            {!product.sellerEmail ? (
+              <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                This sample listing has no seller contact, so it cannot accept
+                purchase requests yet.
               </div>
-              <textarea
-                value={deliveryAddress.instructions}
-                onChange={(event) =>
-                  handleAddressChange("instructions", event.target.value)
-                }
-                className="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                placeholder="Delivery instructions (optional)"
-                aria-label="Delivery instructions"
-              />
-              {error ? (
-                <p role="alert" className="text-sm text-red-600">
-                  {error}
-                </p>
-              ) : null}
-              <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs leading-5 text-slate-500">
-                  This sends a purchase request to the seller. No payment is
-                  taken here.
-                </p>
-                <button
-                  type="submit"
-                  disabled={isSending}
-                  className="rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400"
-                >
-                  {isSending ? "Sending request..." : "Email seller"}
-                </button>
-              </div>
-            </form>
+            ) : (
+              <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
+                <input
+                  required
+                  autoComplete="name"
+                  value={deliveryAddress.recipient}
+                  onChange={(event) =>
+                    handleAddressChange("recipient", event.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                  placeholder="Name on the package"
+                  aria-label="Name on the package"
+                />
+                <input
+                  required
+                  autoComplete="street-address"
+                  value={deliveryAddress.street}
+                  onChange={(event) =>
+                    handleAddressChange("street", event.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                  placeholder="Street address"
+                  aria-label="Street address"
+                />
+                <input
+                  autoComplete="address-line2"
+                  value={deliveryAddress.apartment}
+                  onChange={(event) =>
+                    handleAddressChange("apartment", event.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                  placeholder="Apartment, suite, etc. (optional)"
+                  aria-label="Apartment, suite, or unit"
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input
+                    required
+                    autoComplete="address-level2"
+                    value={deliveryAddress.city}
+                    onChange={(event) =>
+                      handleAddressChange("city", event.target.value)
+                    }
+                    className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                    placeholder="City"
+                    aria-label="City"
+                  />
+                  <input
+                    required
+                    autoComplete="address-level1"
+                    value={deliveryAddress.region}
+                    onChange={(event) =>
+                      handleAddressChange("region", event.target.value)
+                    }
+                    className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                    placeholder="State / province"
+                    aria-label="State or province"
+                  />
+                  <input
+                    required
+                    autoComplete="postal-code"
+                    value={deliveryAddress.postalCode}
+                    onChange={(event) =>
+                      handleAddressChange("postalCode", event.target.value)
+                    }
+                    className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                    placeholder="Postal code"
+                    aria-label="Postal code"
+                  />
+                  <input
+                    required
+                    autoComplete="country-name"
+                    value={deliveryAddress.country}
+                    onChange={(event) =>
+                      handleAddressChange("country", event.target.value)
+                    }
+                    className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                    placeholder="Country"
+                    aria-label="Country"
+                  />
+                </div>
+                <textarea
+                  value={deliveryAddress.instructions}
+                  onChange={(event) =>
+                    handleAddressChange("instructions", event.target.value)
+                  }
+                  className="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                  placeholder="Delivery instructions (optional)"
+                  aria-label="Delivery instructions"
+                />
+                {error ? (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                  >
+                    <p>{error}</p>
+                    {emailDraftUrl ? (
+                      <a
+                        href={emailDraftUrl}
+                        className="mt-2 inline-block font-semibold underline"
+                      >
+                        Open email draft
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs leading-5 text-slate-500">
+                    A successful request is emailed to the seller. No payment is
+                    taken here.
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={isSending}
+                    className="rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400"
+                  >
+                    {isSending ? "Sending request..." : "Send purchase request"}
+                  </button>
+                </div>
+              </form>
+            )}
           </>
         )}
       </div>

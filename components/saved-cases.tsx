@@ -5,13 +5,12 @@ import { Catalog } from "@/components/catalog";
 import { readProducts, seedProducts } from "@/components/product-store";
 import type { Product } from "@/components/types";
 
-export function SavedCases() {
+export function SavedItems() {
   const [products, setProducts] = useState<Product[]>(seedProducts);
 
   useEffect(() => {
     queueMicrotask(() => {
-      const savedProducts = readProducts();
-      if (savedProducts.length > 0) setProducts(savedProducts);
+      setProducts(readProducts());
     });
   }, []);
 

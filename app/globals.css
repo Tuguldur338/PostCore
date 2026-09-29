@@ -2,7 +2,37 @@
 
 :root {
   --background: #0b1224;
+  --background-soft: #111827;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --panel: #0f172a;
+  --panel-strong: #111827;
+  --panel-soft: #172033;
   --foreground: #f8fafc;
+  --foreground-strong: #e2e8f0;
+  --muted: #cbd5e1;
+  --border: rgba(148, 163, 184, 0.45);
+  --accent: #f97316;
+  --accent-strong: #ea580c;
+  --accent-soft: rgba(249, 115, 22, 0.16);
+  color-scheme: dark;
+}
+
+html[data-theme="light"] {
+  --background: #f8fafc;
+  --background-soft: #eef2ff;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --panel: #ffffff;
+  --panel-strong: #e2e8f0;
+  --panel-soft: #f1f5f9;
+  --foreground: #0f172a;
+  --foreground-strong: #1e293b;
+  --muted: #475569;
+  --border: rgba(15, 23, 42, 0.2);
+  --accent: #f97316;
+  --accent-strong: #ea580c;
+  --accent-soft: rgba(249, 115, 22, 0.12);
   color-scheme: light;
 }
 
@@ -24,8 +54,12 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+html[data-theme="light"] body {
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
 #home,
-#cases,
+#items,
 #account {
   scroll-margin-top: 7rem;
 }
@@ -36,6 +70,17 @@ body {
       radial-gradient(circle at 8% 8%, rgb(251 146 60 / 14%), transparent 28%),
       radial-gradient(circle at 92% 88%, rgb(37 99 235 / 18%), transparent 34%),
       linear-gradient(135deg, #0b1224 0%, #101a35 52%, #172554 100%);
+  }
+
+  html[data-theme="light"] .site-shell {
+    background:
+      radial-gradient(circle at 8% 8%, rgb(251 146 60 / 18%), transparent 26%),
+      radial-gradient(
+        circle at 92% 88%,
+        rgb(59 130 246 / 18%),
+        transparent 30%
+      ),
+      linear-gradient(135deg, #f8fafc 0%, #edf6ff 52%, #fdf2f8 100%);
   }
 
   .smooth-transition {
@@ -58,10 +103,10 @@ body {
   .catalog-select {
     width: 100%;
     appearance: none;
-    border: 1px solid rgb(148 163 184 / 35%);
+    border: 1px solid var(--border);
     border-radius: 1rem;
-    background: #172033;
-    color: #e2e8f0;
+    background: var(--panel-soft);
+    color: var(--foreground-strong);
     cursor: pointer;
     padding: 0.75rem 2.25rem 0.75rem 0.75rem;
     outline: none;
@@ -72,8 +117,8 @@ body {
   }
 
   .catalog-select:hover {
-    background: #202d46;
-    border-color: rgb(251 146 60 / 65%);
+    background: var(--surface);
+    border-color: var(--accent);
   }
 
   .catalog-select:focus-visible {
@@ -82,8 +127,8 @@ body {
   }
 
   .catalog-select option {
-    background: #172033;
-    color: #e2e8f0;
+    background: var(--surface);
+    color: var(--foreground);
   }
 
   .form-select {
@@ -127,10 +172,10 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    border: 1px solid rgb(148 163 184 / 35%);
+    border: 1px solid var(--border);
     border-radius: 1rem;
-    background: #172033;
-    color: #e2e8f0;
+    background: var(--panel-soft);
+    color: var(--foreground-strong);
     cursor: pointer;
     padding: 0.75rem;
     text-align: left;
@@ -143,25 +188,25 @@ body {
 
   .filter-trigger:hover,
   .filter-trigger[aria-expanded="true"] {
-    background: #202d46;
-    border-color: rgb(251 146 60 / 65%);
+    background: var(--surface);
+    border-color: var(--accent);
   }
 
   .filter-trigger:focus-visible {
-    border-color: #fb923c;
-    box-shadow: 0 0 0 3px rgb(251 146 60 / 22%);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
     outline: none;
   }
 
   .filter-chevron {
-    color: #94a3b8;
+    color: var(--muted);
     transition:
       color 180ms ease,
       transform 180ms ease;
   }
 
   .filter-chevron.is-open {
-    color: #fb923c;
+    color: var(--accent);
     transform: rotate(180deg);
   }
 
@@ -172,9 +217,9 @@ body {
     right: 0;
     left: 0;
     overflow: hidden;
-    border: 1px solid rgb(148 163 184 / 35%);
+    border: 1px solid var(--border);
     border-radius: 1rem;
-    background: #111827;
+    background: var(--panel);
     box-shadow: 0 18px 40px rgb(2 6 23 / 35%);
     padding: 0.35rem;
   }
@@ -185,7 +230,7 @@ body {
     align-items: center;
     justify-content: space-between;
     border-radius: 0.7rem;
-    color: #cbd5e1;
+    color: var(--foreground-strong);
     cursor: pointer;
     padding: 0.65rem 0.7rem;
     text-align: left;
@@ -196,8 +241,8 @@ body {
 
   .filter-option:hover,
   .filter-option.is-selected {
-    background: rgb(251 146 60 / 16%);
-    color: #fed7aa;
+    background: var(--accent-soft);
+    color: var(--accent);
   }
 
   .select-arrow {

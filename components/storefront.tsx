@@ -2,6 +2,12 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Account } from "@/components/account";
+import {
+  establishUserSession,
+  readUsers,
+  restoreUserSession,
+  writeUsers,
+} from "@/components/auth-store";
 import { Catalog } from "@/components/catalog";
 import { Intro } from "@/components/intro";
 import { readProducts, seedProducts } from "@/components/product-store";
@@ -13,7 +19,6 @@ import type {
   User,
 } from "@/components/types";
 
-const storageKey = "postcore-users";
 const sessionKey = "postcore-current-user";
 
 const emptyDeliveryAddress: DeliveryAddress = {
@@ -26,22 +31,6 @@ const emptyDeliveryAddress: DeliveryAddress = {
   country: "",
   instructions: "",
 };
-
-function readUsers(): User[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(storageKey);
-    return raw ? (JSON.parse(raw) as User[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeUsers(users: User[]) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey, JSON.stringify(users));
-}
 
 export function Storefront() {
   const [mode, setMode] = useState<AuthMode>("login");
@@ -57,31 +46,23 @@ export function Storefront() {
     useState<DeliveryAddress>(emptyDeliveryAddress);
   const [deliveryStatus, setDeliveryStatus] = useState("");
   const [products, setProducts] = useState<Product[]>(seedProducts);
-  const [hasSellerProducts, setHasSellerProducts] = useState(false);
+  const [hasSellerProducts, setHasSellerProducts] = useState(true);
   const [status, setStatus] = useState(
-    "Create an account or sign in to manage your resale profile.",
+    "Create an account or sign in to manage your student marketplace profile.",
   );
 
   useEffect(() => {
     queueMicrotask(() => {
-      setUsers(readUsers());
+      const session = restoreUserSession();
+      setUsers(session?.users ?? readUsers());
 
       const savedProducts = readProducts();
-      if (savedProducts.length > 0) {
-        setProducts(savedProducts);
-        setHasSellerProducts(true);
-      }
+      setProducts(savedProducts);
+      setHasSellerProducts(savedProducts.length > 0);
 
-      const savedSession = window.localStorage.getItem(sessionKey);
-      if (!savedSession) return;
-
-      try {
-        const savedUser = JSON.parse(savedSession) as User;
-        setCurrentUser(savedUser);
-        setDeliveryAddress(savedUser.deliveryAddress ?? emptyDeliveryAddress);
-      } catch {
-        window.localStorage.removeItem(sessionKey);
-      }
+      if (!session) return;
+      setCurrentUser(session.user);
+      setDeliveryAddress(session.user.deliveryAddress ?? emptyDeliveryAddress);
     });
   }, []);
 
@@ -122,9 +103,9 @@ export function Storefront() {
       };
 
       const nextUsers = [...users, newUser];
-      writeUsers(nextUsers);
-      setUsers(nextUsers);
-      setCurrentUser(newUser);
+      const session = establishUserSession(newUser, nextUsers);
+      setUsers(session.users);
+      setCurrentUser(session.user);
       setDeliveryAddress(emptyDeliveryAddress);
       setDeliveryStatus("");
       setForm({ name: "", email: "", password: "", confirmPassword: "" });
@@ -138,8 +119,10 @@ export function Storefront() {
     );
 
     if (foundUser) {
-      setCurrentUser(foundUser);
-      setDeliveryAddress(foundUser.deliveryAddress ?? emptyDeliveryAddress);
+      const session = establishUserSession(foundUser, users);
+      setUsers(session.users);
+      setCurrentUser(session.user);
+      setDeliveryAddress(session.user.deliveryAddress ?? emptyDeliveryAddress);
       setDeliveryStatus("");
       setForm({ name: "", email: "", password: "", confirmPassword: "" });
       setStatus(`Welcome back, ${foundUser.name}!`);
@@ -208,7 +191,7 @@ export function Storefront() {
       <Intro />
 
       <section
-        id="cases"
+        id="items"
         className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]"
       >
         <Catalog products={products} showProductCards={hasSellerProducts} />

@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CaseCart | Styled Phone Case Marketplace",
+  title: "PostCore | Student Essentials Marketplace",
   description:
-    "A polished reselling website for phone cases with account registration and profile photo upload.",
+    "A polished student-focused marketplace for buying and selling school supplies, snacks, and everyday campus essentials.",
   icons: {
     icon: [
       { url: "/favicon.ico?v=2", type: "image/x-icon" },

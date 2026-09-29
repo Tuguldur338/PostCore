@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { formatMntPrice } from "@/components/currency";
 
 type DeliveryAddress = {
   recipient: string;
@@ -56,12 +56,15 @@ function isOrderNotification(value: unknown): value is OrderNotification {
 }
 
 export async function POST(request: Request) {
-  const gmailUser = process.env.GMAIL_USER?.trim();
-  const gmailAppPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "");
+  const resendApiKey = process.env.RESEND_API_KEY?.trim();
+  const fromEmail = process.env.RESEND_FROM_EMAIL?.trim();
 
-  if (!gmailUser || !gmailAppPassword) {
+  if (!resendApiKey || !fromEmail) {
     return Response.json(
-      { message: "Gmail sending is not configured on the server." },
+      {
+        message:
+          "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM_EMAIL on the server.",
+      },
       { status: 503 },
     );
   }
@@ -85,43 +88,62 @@ export async function POST(request: Request) {
   }
 
   const address = payload.deliveryAddress;
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: gmailUser,
-      pass: gmailAppPassword,
-    },
-  });
-
   try {
-    await transporter.sendMail({
-      from: { name: "CaseCart Orders", address: gmailUser },
-      to: sellerNotificationEmail,
-      subject: `New CaseCart order ${payload.orderReference}`,
-      text: [
-        "A new order was placed on CaseCart.",
-        "",
-        `Order reference: ${payload.orderReference}`,
-        `Product: ${payload.productName}`,
-        `Price: ${payload.price}`,
-        `Placed at: ${payload.placedAt}`,
-        "",
-        "Delivery address:",
-        address.recipient,
-        address.street,
-        address.apartment,
-        `${address.city}, ${address.region} ${address.postalCode}`,
-        address.country,
-        address.instructions ? `Instructions: ${address.instructions}` : "",
-      ]
-        .filter(Boolean)
-        .join("\n"),
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": payload.orderReference,
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: [sellerNotificationEmail],
+        subject: `New PostCore order ${payload.orderReference}`,
+        text: [
+          "A new order was placed on PostCore.",
+          "",
+          `Order reference: ${payload.orderReference}`,
+          `Product: ${payload.productName}`,
+          `Price: ${formatMntPrice(payload.price)}`,
+          `Placed at: ${payload.placedAt}`,
+          "",
+          "Delivery address:",
+          address.recipient,
+          address.street,
+          address.apartment,
+          `${address.city}, ${address.region} ${address.postalCode}`,
+          address.country,
+          address.instructions ? `Instructions: ${address.instructions}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      }),
     });
+
+    if (!response.ok) {
+      const providerResponse: unknown = await response.json().catch(() => null);
+      const providerMessage =
+        providerResponse &&
+        typeof providerResponse === "object" &&
+        "message" in providerResponse &&
+        typeof providerResponse.message === "string"
+          ? providerResponse.message.trim().slice(0, 300)
+          : "";
+
+      return Response.json(
+        {
+          message: providerMessage
+            ? `Resend rejected the email: ${providerMessage}`
+            : "Resend rejected the email. Check your API key, sender verification, and recipient restrictions.",
+        },
+        { status: 502 },
+      );
+    }
   } catch {
     return Response.json(
       {
-        message:
-          "Gmail could not send the seller alert. Check the server settings.",
+        message: "The email provider could not be reached. Please try again.",
       },
       { status: 502 },
     );

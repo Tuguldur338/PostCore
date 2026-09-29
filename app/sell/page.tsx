@@ -3,6 +3,8 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
+import { restoreUserSession } from "@/components/auth-store";
+import { parseMntAmount } from "@/components/currency";
 import { readProducts, writeProducts } from "@/components/product-store";
 import type { Product, User } from "@/components/types";
 
@@ -18,8 +20,6 @@ type ProductFormState = {
   deliveryMethod: string;
 };
 
-const sessionKey = "postcore-current-user";
-const usersStorageKey = "postcore-users";
 const maxImageDimension = 1280;
 const maxImageDataUrlLength = 220_000;
 
@@ -34,17 +34,6 @@ const emptyProductForm: ProductFormState = {
   deliveryCountry: "",
   deliveryMethod: "",
 };
-
-function readUsers(): User[] {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const raw = window.localStorage.getItem(usersStorageKey);
-    return raw ? (JSON.parse(raw) as User[]) : [];
-  } catch {
-    return [];
-  }
-}
 
 function compressImage(source: Blob | string): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -105,25 +94,18 @@ function compressImage(source: Blob | string): Promise<string> {
 export default function SellPage() {
   const [productForm, setProductForm] =
     useState<ProductFormState>(emptyProductForm);
-  const [status, setStatus] = useState("Add a phone case to start selling.");
+  const [status, setStatus] = useState("Add an item to start selling.");
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isSessionReady, setIsSessionReady] = useState(false);
   const [isCompressingImage, setIsCompressingImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const savedSession = window.localStorage.getItem(sessionKey);
-    if (savedSession) {
-      try {
-        const parsedUser = JSON.parse(savedSession) as User;
-        const users = readUsers();
-        const matchedUser = users.find((user) => user.id === parsedUser.id);
-        queueMicrotask(() => setCurrentUser(matchedUser ?? parsedUser));
-      } catch {
-        window.localStorage.removeItem(sessionKey);
-      }
-    }
+    const session = restoreUserSession();
+    queueMicrotask(() => {
+      setCurrentUser(session?.user ?? null);
+      setIsSessionReady(true);
+    });
   }, []);
 
   const handleInputChange = (field: keyof ProductFormState, value: string) => {
@@ -154,13 +136,18 @@ export default function SellPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!currentUser) {
-      setStatus("Please create an account or sign in before adding a product.");
+    if (currentUser?.role !== "admin") {
+      setStatus("Only the marketplace admin can add product listings.");
       return;
     }
 
-    if (!productForm.name.trim() || !productForm.price.trim()) {
-      setStatus("Please add a product name and price.");
+    const priceAmount = parseMntAmount(productForm.price);
+    if (
+      !productForm.name.trim() ||
+      !Number.isSafeInteger(priceAmount) ||
+      priceAmount <= 0
+    ) {
+      setStatus("Please add a product name and a valid whole price in MNT.");
       return;
     }
 
@@ -174,13 +161,13 @@ export default function SellPage() {
     const newProduct: Product = {
       id: crypto.randomUUID(),
       name: productForm.name.trim(),
-      price: productForm.price.trim(),
+      price: String(priceAmount),
       badge: "New",
       description:
         productForm.description.trim() || "A fresh design ready to ship.",
       image: productForm.image,
-      category: productForm.category.trim() || "Phone case",
-      fitsFor: productForm.fitsFor.trim() || "Most phones",
+      category: productForm.category.trim() || "School Supplies",
+      fitsFor: productForm.fitsFor.trim() || "Campus life",
       sellerEmail: currentUser.email.trim().toLowerCase(),
     };
 
@@ -240,137 +227,149 @@ export default function SellPage() {
               Sell a product
             </p>
             <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-              Add a new phone case listing
+              Add a new student item listing
             </h1>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Signed-in sellers can add a new listing here. Guests can browse
-              and buy, but they cannot publish products.
+              The marketplace admin can add listings here. Other students can
+              browse and buy, but cannot publish items.
             </p>
           </div>
 
-          {!currentUser ? (
+          {!isSessionReady ? (
+            <p className="mt-6 text-sm text-slate-600">Checking account...</p>
+          ) : !currentUser ? (
             <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-700">
-              Create an account or sign in from the Account page to add a
-              product for sale.
+              Create an account or sign in from the Account page. The first
+              account to sign in becomes the marketplace admin.
             </div>
-          ) : null}
-
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-            <div className="grid gap-4 md:grid-cols-2">
-              <input
-                value={productForm.name}
-                onChange={(event) =>
-                  handleInputChange("name", event.target.value)
-                }
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                placeholder="Case name"
-              />
-              <input
-                value={productForm.price}
-                onChange={(event) =>
-                  handleInputChange("price", event.target.value)
-                }
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                placeholder="Price"
-              />
+          ) : currentUser.role !== "admin" ? (
+            <div className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+              Your account is a student account. Only the first account to sign
+              in as the marketplace admin can create listings.
             </div>
-
-            <textarea
-              value={productForm.description}
-              onChange={(event) =>
-                handleInputChange("description", event.target.value)
-              }
-              className="min-h-[110px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-              placeholder="Describe the case"
-            />
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <input
-                value={productForm.category}
-                onChange={(event) =>
-                  handleInputChange("category", event.target.value)
-                }
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                placeholder="Category"
-              />
-              <input
-                value={productForm.fitsFor}
-                onChange={(event) =>
-                  handleInputChange("fitsFor", event.target.value)
-                }
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                placeholder="Fits for"
-              />
-            </div>
-
-            <label className="block rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-              <span className="mb-2 block font-semibold text-slate-700">
-                Upload product image
-              </span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                className="w-full text-sm"
-                disabled={isCompressingImage || isSaving}
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                A photo is required. Large photos are optimized before saving.
-              </p>
-            </label>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-700">
-                Delivery details
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Help buyers know where to pick up or where the item can be sent.
-              </p>
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
+          ) : (
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+              <div className="grid gap-4 md:grid-cols-2">
                 <input
-                  value={productForm.deliveryLocation}
+                  value={productForm.name}
                   onChange={(event) =>
-                    handleInputChange("deliveryLocation", event.target.value)
+                    handleInputChange("name", event.target.value)
                   }
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                  placeholder="Drop-off location"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                  placeholder="Item name"
                 />
                 <input
-                  value={productForm.deliveryCountry}
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={productForm.price}
                   onChange={(event) =>
-                    handleInputChange("deliveryCountry", event.target.value)
+                    handleInputChange("price", event.target.value)
                   }
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                  placeholder="Country"
-                />
-                <input
-                  value={productForm.deliveryMethod}
-                  onChange={(event) =>
-                    handleInputChange("deliveryMethod", event.target.value)
-                  }
-                  className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                  placeholder="Mailbox / courier / pickup"
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                  placeholder="Price in MNT (₮)"
                 />
               </div>
-            </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-slate-600">{status}</p>
-              <button
-                type="submit"
-                disabled={!currentUser || isCompressingImage || isSaving}
-                className="smooth-transition rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-out hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
-              >
-                {!currentUser
-                  ? "Sign in to sell"
-                  : isCompressingImage
-                    ? "Optimizing photo..."
-                    : isSaving
-                      ? "Saving..."
-                      : "Add product"}
-              </button>
-            </div>
-          </form>
+              <textarea
+                value={productForm.description}
+                onChange={(event) =>
+                  handleInputChange("description", event.target.value)
+                }
+                className="min-h-[110px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                placeholder="Describe the item"
+              />
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <input
+                  value={productForm.category}
+                  onChange={(event) =>
+                    handleInputChange("category", event.target.value)
+                  }
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                  placeholder="Category"
+                />
+                <input
+                  value={productForm.fitsFor}
+                  onChange={(event) =>
+                    handleInputChange("fitsFor", event.target.value)
+                  }
+                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                  placeholder="Fits for"
+                />
+              </div>
+
+              <label className="block rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                <span className="mb-2 block font-semibold text-slate-700">
+                  Upload product image
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="w-full text-sm"
+                  disabled={isCompressingImage || isSaving}
+                />
+                <p className="mt-2 text-xs text-slate-500">
+                  A photo is required. Large photos are optimized before saving.
+                </p>
+              </label>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-700">
+                  Delivery details
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Help buyers know where to pick up or where the item can be
+                  sent.
+                </p>
+                <div className="mt-4 grid gap-4 md:grid-cols-3">
+                  <input
+                    value={productForm.deliveryLocation}
+                    onChange={(event) =>
+                      handleInputChange("deliveryLocation", event.target.value)
+                    }
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
+                    placeholder="Drop-off location"
+                  />
+                  <input
+                    value={productForm.deliveryCountry}
+                    onChange={(event) =>
+                      handleInputChange("deliveryCountry", event.target.value)
+                    }
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
+                    placeholder="Country"
+                  />
+                  <input
+                    value={productForm.deliveryMethod}
+                    onChange={(event) =>
+                      handleInputChange("deliveryMethod", event.target.value)
+                    }
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
+                    placeholder="Mailbox / courier / pickup"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-600">{status}</p>
+                <button
+                  type="submit"
+                  disabled={!currentUser || isCompressingImage || isSaving}
+                  className="smooth-transition rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-out hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {!currentUser
+                    ? "Sign in to sell"
+                    : isCompressingImage
+                      ? "Optimizing photo..."
+                      : isSaving
+                        ? "Saving..."
+                        : "Add product"}
+                </button>
+              </div>
+            </form>
+          )}
         </section>
 
         <Footer />

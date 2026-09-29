@@ -62,7 +62,9 @@ export function Account({
             </div>
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-600">
-                Your profile
+                {currentUser.role === "admin"
+                  ? "Marketplace admin"
+                  : "Student account"}
               </p>
               <h2 className="text-2xl font-semibold text-slate-900">
                 {currentUser.name}
@@ -106,8 +108,8 @@ export function Account({
                 onDeliveryAddressChange("recipient", event.target.value)
               }
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Your name or the recipient name"
-              aria-label="Recipient's name"
+              placeholder="Full name"
+              aria-label="Full name"
             />
             <input
               required
@@ -117,8 +119,8 @@ export function Account({
                 onDeliveryAddressChange("street", event.target.value)
               }
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Street address"
-              aria-label="Street address"
+              placeholder="Your class"
+              aria-label="Your class"
             />
             <input
               autoComplete="address-line2"

@@ -48,7 +48,9 @@ RESEND_FROM_EMAIL=orders@your-verified-domain.com
 SELLER_NOTIFICATION_EMAIL=your-inbox@gmail.com
 ```
 
-Create a Resend account and API key, verify a sending domain, and use an address on that domain for `RESEND_FROM_EMAIL`. New listings use the signed-in seller's account email. If server email is unavailable, checkout provides a prefilled email draft link; the buyer must open and send it. Built-in sample listings have no seller contact and cannot accept purchase requests. Keep the API key private in `.env.local`, which is ignored by Git, and restart the development server after setting the values. The site does not process payments or keep a shared order database.
+Create a Resend account and API key, verify a sending domain, and use an address on that domain for `RESEND_FROM_EMAIL`. New listings use the signed-in seller's account email. If server email is unavailable, checkout provides a prefilled email draft link; the buyer must open and send it. Built-in sample listings have no seller contact and cannot accept purchase requests. Keep the API key private in `.env.local`, which is ignored by Git, and restart the development server after setting the values.
+
+For the deployed Netlify site, `.env.local` is not used. Add `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and optionally `SELLER_NOTIFICATION_EMAIL` under **Project configuration → Environment variables** in the Netlify UI (make sure the **Functions** scope is included), then trigger a new deploy so the values take effect. The site does not process payments or keep a shared order database.
 
 ## Admin and selling
 

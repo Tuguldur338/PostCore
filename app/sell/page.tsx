@@ -11,6 +11,7 @@ import type { Product, User } from "@/components/types";
 type ProductFormState = {
   name: string;
   price: string;
+  quantity: string;
   description: string;
   category: string;
   fitsFor: string;
@@ -26,6 +27,7 @@ const maxImageDataUrlLength = 220_000;
 const emptyProductForm: ProductFormState = {
   name: "",
   price: "",
+  quantity: "1",
   description: "",
   category: "",
   fitsFor: "",
@@ -151,6 +153,12 @@ export default function SellPage() {
       return;
     }
 
+    const quantity = Number(productForm.quantity);
+    if (!Number.isSafeInteger(quantity) || quantity < 1) {
+      setStatus("Please enter how many items you have to sell (1 or more).");
+      return;
+    }
+
     if (!productForm.image) {
       setStatus("Please upload a product image before adding the listing.");
       return;
@@ -169,6 +177,7 @@ export default function SellPage() {
       category: productForm.category.trim() || "School Supplies",
       fitsFor: productForm.fitsFor.trim() || "Campus life",
       sellerEmail: currentUser.email.trim().toLowerCase(),
+      quantity,
     };
 
     const deliveryNote = [
@@ -249,7 +258,7 @@ export default function SellPage() {
             </div>
           ) : (
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 <input
                   value={productForm.name}
                   onChange={(event) =>
@@ -270,6 +279,23 @@ export default function SellPage() {
                   className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
                   placeholder="Price in MNT (₮)"
                 />
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm">
+                  <span className="whitespace-nowrap font-semibold text-slate-700">
+                    Quantity
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={productForm.quantity}
+                    onChange={(event) =>
+                      handleInputChange("quantity", event.target.value)
+                    }
+                    className="w-full bg-transparent py-3 outline-none"
+                    placeholder="How many to sell"
+                  />
+                </label>
               </div>
 
               <textarea

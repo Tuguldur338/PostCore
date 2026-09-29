@@ -80,7 +80,7 @@ export async function POST(request: Request) {
   const sellerNotificationEmail =
     payload.sellerEmail?.trim() ||
     process.env.SELLER_NOTIFICATION_EMAIL?.trim();
-  if (!sellerNotificationEmail) {
+  if (!sellerNotificationEmail || !isEmailAddress(sellerNotificationEmail)) {
     return Response.json(
       { message: "This listing does not have a seller email address." },
       { status: 400 },
@@ -130,6 +130,16 @@ export async function POST(request: Request) {
         typeof providerResponse.message === "string"
           ? providerResponse.message.trim().slice(0, 300)
           : "";
+
+      if (/api key is invalid/i.test(providerMessage)) {
+        return Response.json(
+          {
+            message:
+              "Resend says the RESEND_API_KEY is invalid. Create a new API key in the Resend dashboard, paste it into the RESEND_API_KEY environment variable in Netlify, and redeploy.",
+          },
+          { status: 502 },
+        );
+      }
 
       return Response.json(
         {

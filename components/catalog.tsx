@@ -8,6 +8,10 @@ import type { Product } from "./types";
 
 const favoritesStorageKey = "postcore-favorites";
 
+function isUnavailable(product: Product): boolean {
+  return Boolean(product.outOfStock) || product.quantity === 0;
+}
+
 type FilterMenuProps = {
   label: string;
   value: string;
@@ -71,6 +75,7 @@ type CatalogProps = {
   showProductCards?: boolean;
   canManageListings?: boolean;
   onAvailabilityChange?: (productId: string, outOfStock: boolean) => void;
+  onQuantityChange?: (productId: string, quantity: number) => void;
   onRemoveProduct?: (productId: string) => void;
 };
 
@@ -81,6 +86,7 @@ export function Catalog({
   showProductCards = true,
   canManageListings = false,
   onAvailabilityChange,
+  onQuantityChange,
   onRemoveProduct,
 }: CatalogProps) {
   const [query, setQuery] = useState("");
@@ -158,7 +164,7 @@ export function Catalog({
   };
 
   const startCheckout = (product: Product) => {
-    if (product.outOfStock) return;
+    if (isUnavailable(product)) return;
     setSelectedProduct(null);
     setCheckoutProduct(product);
   };
@@ -278,7 +284,7 @@ export function Catalog({
               <div className="p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    {product.outOfStock ? (
+                    {isUnavailable(product) ? (
                       <span className="rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold text-rose-700">
                         Out of stock
                       </span>
@@ -290,6 +296,11 @@ export function Catalog({
                     <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                       {product.category}
                     </span>
+                    {product.quantity !== undefined && !isUnavailable(product) ? (
+                      <span className="text-xs font-semibold text-emerald-700">
+                        {product.quantity} available
+                      </span>
+                    ) : null}
                   </div>
                   <button
                     type="button"
@@ -315,10 +326,10 @@ export function Catalog({
                 <button
                   type="button"
                   onClick={() => startCheckout(product)}
-                  disabled={product.outOfStock}
+                  disabled={isUnavailable(product)}
                   className="mt-4 w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {product.outOfStock ? "Unavailable" : "Buy now"}
+                  {isUnavailable(product) ? "Unavailable" : "Buy now"}
                 </button>
                 <div className="mt-2 flex gap-2">
                   <button
@@ -338,6 +349,29 @@ export function Catalog({
                 </div>
                 {canManageListings ? (
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
+                    <label className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-700">
+                      Qty
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        inputMode="numeric"
+                        value={product.quantity ?? ""}
+                        placeholder="—"
+                        onChange={(event) => {
+                          const quantity = Number(event.target.value);
+                          if (
+                            event.target.value !== "" &&
+                            Number.isSafeInteger(quantity) &&
+                            quantity >= 0
+                          ) {
+                            onQuantityChange?.(product.id, quantity);
+                          }
+                        }}
+                        className="w-16 bg-transparent py-1 outline-none"
+                        aria-label={`Quantity of ${product.name}`}
+                      />
+                    </label>
                     <button
                       type="button"
                       onClick={() =>
@@ -398,6 +432,13 @@ export function Catalog({
             <p className="mt-5 text-lg font-semibold text-orange-600">
               {formatMntPrice(selectedProduct.price)}
             </p>
+            {selectedProduct.quantity !== undefined ? (
+              <p className="mt-1 text-sm font-semibold text-slate-600">
+                {isUnavailable(selectedProduct)
+                  ? "Out of stock"
+                  : `${selectedProduct.quantity} available`}
+              </p>
+            ) : null}
             <p className="mt-2 whitespace-pre-line text-sm leading-7 text-slate-600">
               {selectedProduct.description}
             </p>
@@ -408,10 +449,10 @@ export function Catalog({
             <button
               type="button"
               onClick={() => startCheckout(selectedProduct)}
-              disabled={selectedProduct.outOfStock}
+              disabled={isUnavailable(selectedProduct)}
               className="mt-4 w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {selectedProduct.outOfStock ? "Unavailable" : "Buy now"}
+              {isUnavailable(selectedProduct) ? "Unavailable" : "Buy now"}
             </button>
           </div>
         </div>

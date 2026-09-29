@@ -31,6 +31,7 @@ export type Product = {
   category: string;
   fitsFor: string;
   sellerEmail?: string;
+  quantity?: number;
   outOfStock?: boolean;
 };
 

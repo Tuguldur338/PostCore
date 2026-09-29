@@ -42,6 +42,14 @@ export default function ProductsPage() {
     );
   };
 
+  const handleQuantityChange = (productId: string, quantity: number) => {
+    saveProducts(
+      products.map((product) =>
+        product.id === productId ? { ...product, quantity } : product,
+      ),
+    );
+  };
+
   const handleRemoveProduct = (productId: string) => {
     const product = products.find((item) => item.id === productId);
     if (
@@ -91,6 +99,7 @@ export default function ProductsPage() {
           products={products}
           canManageListings={canManageListings}
           onAvailabilityChange={handleAvailabilityChange}
+          onQuantityChange={handleQuantityChange}
           onRemoveProduct={handleRemoveProduct}
         />
         <Footer />

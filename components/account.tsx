@@ -93,10 +93,10 @@ export function Account({
         <section className="rounded-3xl border border-slate-200 bg-white p-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-600">
-              Delivery address
+              Classroom delivery
             </p>
             <h3 className="mt-1 text-xl font-semibold text-slate-900">
-              Where should your order go?
+              Which class and room should we bring your order to?
             </h3>
           </div>
           <form className="mt-4 space-y-3" onSubmit={onDeliveryAddressSubmit}>
@@ -111,87 +111,51 @@ export function Account({
               placeholder="Full name"
               aria-label="Full name"
             />
-            <input
-              required
-              autoComplete="street-address"
-              value={deliveryAddress.street}
-              onChange={(event) =>
-                onDeliveryAddressChange("street", event.target.value)
-              }
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Your class"
-              aria-label="Your class"
-            />
-            <input
-              autoComplete="address-line2"
-              value={deliveryAddress.apartment}
-              onChange={(event) =>
-                onDeliveryAddressChange("apartment", event.target.value)
-              }
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Apartment, suite, etc. (optional)"
-              aria-label="Apartment, suite, or unit"
-            />
             <div className="grid gap-3 sm:grid-cols-2">
               <input
                 required
-                autoComplete="address-level2"
-                value={deliveryAddress.city}
+                value={deliveryAddress.classNumber}
                 onChange={(event) =>
-                  onDeliveryAddressChange("city", event.target.value)
+                  onDeliveryAddressChange("classNumber", event.target.value)
                 }
                 className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-                placeholder="City"
-                aria-label="City"
+                placeholder="Class (e.g. 10B)"
+                aria-label="Class number"
               />
               <input
                 required
-                autoComplete="address-level1"
-                value={deliveryAddress.region}
+                value={deliveryAddress.roomNumber}
                 onChange={(event) =>
-                  onDeliveryAddressChange("region", event.target.value)
+                  onDeliveryAddressChange("roomNumber", event.target.value)
                 }
                 className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-                placeholder="State / province"
-                aria-label="State or province"
-              />
-              <input
-                required
-                autoComplete="postal-code"
-                value={deliveryAddress.postalCode}
-                onChange={(event) =>
-                  onDeliveryAddressChange("postalCode", event.target.value)
-                }
-                className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-                placeholder="Postal code"
-                aria-label="Postal code"
-              />
-              <input
-                required
-                autoComplete="country-name"
-                value={deliveryAddress.country}
-                onChange={(event) =>
-                  onDeliveryAddressChange("country", event.target.value)
-                }
-                className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-                placeholder="Country"
-                aria-label="Country"
+                placeholder="Room number (e.g. 204)"
+                aria-label="Room number"
               />
             </div>
+            <input
+              value={deliveryAddress.building}
+              onChange={(event) =>
+                onDeliveryAddressChange("building", event.target.value)
+              }
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
+              placeholder="Building / floor (optional)"
+              aria-label="Building or floor"
+            />
             <textarea
               value={deliveryAddress.instructions}
               onChange={(event) =>
                 onDeliveryAddressChange("instructions", event.target.value)
               }
               className="min-h-20 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Delivery instructions (optional)"
-              aria-label="Delivery instructions"
+              placeholder="Notes, e.g. leave with the class teacher (optional)"
+              aria-label="Delivery notes"
             />
             <button
               type="submit"
               className="smooth-transition w-full rounded-2xl bg-sky-600 px-4 py-3 font-semibold text-white transition-colors duration-200 ease-out hover:bg-sky-700"
             >
-              Save delivery address
+              Save class and room
             </button>
             <p aria-live="polite" className="text-sm text-slate-600">
               {deliveryStatus}

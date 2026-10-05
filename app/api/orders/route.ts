@@ -2,13 +2,10 @@ import { formatMntPrice } from "@/components/currency";
 
 type DeliveryAddress = {
   recipient: string;
-  street: string;
-  apartment: string;
-  city: string;
-  region: string;
-  postalCode: string;
-  country: string;
-  instructions: string;
+  classNumber: string;
+  roomNumber: string;
+  building?: string;
+  instructions?: string;
 };
 
 type OrderNotification = {
@@ -47,11 +44,8 @@ function isOrderNotification(value: unknown): value is OrderNotification {
     isNonEmptyString(order.placedAt) &&
     Boolean(address) &&
     isNonEmptyString(address?.recipient) &&
-    isNonEmptyString(address?.street) &&
-    isNonEmptyString(address?.city) &&
-    isNonEmptyString(address?.region) &&
-    isNonEmptyString(address?.postalCode) &&
-    isNonEmptyString(address?.country)
+    isNonEmptyString(address?.classNumber) &&
+    isNonEmptyString(address?.roomNumber)
   );
 }
 
@@ -108,12 +102,11 @@ export async function POST(request: Request) {
           `Price: ${formatMntPrice(payload.price)}`,
           `Placed at: ${payload.placedAt}`,
           "",
-          "Delivery address:",
-          address.recipient,
-          address.street,
-          address.apartment,
-          `${address.city}, ${address.region} ${address.postalCode}`,
-          address.country,
+          "Deliver to:",
+          `Student: ${address.recipient}`,
+          `Class: ${address.classNumber}`,
+          `Room: ${address.roomNumber}`,
+          address.building ? `Building / floor: ${address.building}` : "",
           address.instructions ? `Instructions: ${address.instructions}` : "",
         ]
           .filter(Boolean)

@@ -8,12 +8,9 @@ const sessionStorageKey = "postcore-current-user";
 
 const emptyDeliveryAddress: DeliveryAddress = {
   recipient: "",
-  street: "",
-  apartment: "",
-  city: "",
-  region: "",
-  postalCode: "",
-  country: "",
+  classNumber: "",
+  roomNumber: "",
+  building: "",
   instructions: "",
 };
 
@@ -62,11 +59,11 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
 
   const createEmailDraftUrl = (requestReference: string) => {
     const addressLines = [
-      deliveryAddress.recipient,
-      deliveryAddress.street,
-      deliveryAddress.apartment,
-      `${deliveryAddress.city}, ${deliveryAddress.region} ${deliveryAddress.postalCode}`,
-      deliveryAddress.country,
+      `Student: ${deliveryAddress.recipient}`,
+      `Class: ${deliveryAddress.classNumber}`,
+      `Room: ${deliveryAddress.roomNumber}`,
+      deliveryAddress.building &&
+        `Building / floor: ${deliveryAddress.building}`,
       deliveryAddress.instructions,
     ].filter(Boolean);
     const subject = `Purchase request: ${product.name}`;
@@ -75,7 +72,7 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
       `Price: ${formatMntPrice(product.price)}`,
       `Order reference: ${requestReference}`,
       "",
-      "Delivery details:",
+      "Deliver to:",
       ...addressLines,
     ].join("\n");
     const recipient = product.sellerEmail?.trim();
@@ -146,7 +143,7 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
               id="checkout-title"
               className="mt-1 text-2xl font-semibold text-slate-900"
             >
-              {orderReference ? "Request sent" : "Delivery details"}
+              {orderReference ? "Request sent" : "Classroom delivery"}
             </h2>
           </div>
           <button
@@ -205,84 +202,48 @@ export function CheckoutDialog({ product, onClose }: CheckoutDialogProps) {
                     handleAddressChange("recipient", event.target.value)
                   }
                   className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="Name on the package"
-                  aria-label="Name on the package"
-                />
-                <input
-                  required
-                  autoComplete="street-address"
-                  value={deliveryAddress.street}
-                  onChange={(event) =>
-                    handleAddressChange("street", event.target.value)
-                  }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="Street address"
-                  aria-label="Street address"
-                />
-                <input
-                  autoComplete="address-line2"
-                  value={deliveryAddress.apartment}
-                  onChange={(event) =>
-                    handleAddressChange("apartment", event.target.value)
-                  }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="Apartment, suite, etc. (optional)"
-                  aria-label="Apartment, suite, or unit"
+                  placeholder="Student name"
+                  aria-label="Student name"
                 />
                 <div className="grid gap-3 sm:grid-cols-2">
                   <input
                     required
-                    autoComplete="address-level2"
-                    value={deliveryAddress.city}
+                    value={deliveryAddress.classNumber}
                     onChange={(event) =>
-                      handleAddressChange("city", event.target.value)
+                      handleAddressChange("classNumber", event.target.value)
                     }
                     className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                    placeholder="City"
-                    aria-label="City"
+                    placeholder="Class (e.g. 10B)"
+                    aria-label="Class number"
                   />
                   <input
                     required
-                    autoComplete="address-level1"
-                    value={deliveryAddress.region}
+                    value={deliveryAddress.roomNumber}
                     onChange={(event) =>
-                      handleAddressChange("region", event.target.value)
+                      handleAddressChange("roomNumber", event.target.value)
                     }
                     className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                    placeholder="State / province"
-                    aria-label="State or province"
-                  />
-                  <input
-                    required
-                    autoComplete="postal-code"
-                    value={deliveryAddress.postalCode}
-                    onChange={(event) =>
-                      handleAddressChange("postalCode", event.target.value)
-                    }
-                    className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                    placeholder="Postal code"
-                    aria-label="Postal code"
-                  />
-                  <input
-                    required
-                    autoComplete="country-name"
-                    value={deliveryAddress.country}
-                    onChange={(event) =>
-                      handleAddressChange("country", event.target.value)
-                    }
-                    className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                    placeholder="Country"
-                    aria-label="Country"
+                    placeholder="Room number (e.g. 204)"
+                    aria-label="Room number"
                   />
                 </div>
+                <input
+                  value={deliveryAddress.building}
+                  onChange={(event) =>
+                    handleAddressChange("building", event.target.value)
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
+                  placeholder="Building / floor (optional)"
+                  aria-label="Building or floor"
+                />
                 <textarea
                   value={deliveryAddress.instructions}
                   onChange={(event) =>
                     handleAddressChange("instructions", event.target.value)
                   }
                   className="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="Delivery instructions (optional)"
-                  aria-label="Delivery instructions"
+                  placeholder="Notes, e.g. leave with the class teacher (optional)"
+                  aria-label="Delivery notes"
                 />
                 {error ? (
                   <div

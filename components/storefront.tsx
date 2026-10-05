@@ -23,12 +23,9 @@ const sessionKey = "postcore-current-user";
 
 const emptyDeliveryAddress: DeliveryAddress = {
   recipient: "",
-  street: "",
-  apartment: "",
-  city: "",
-  region: "",
-  postalCode: "",
-  country: "",
+  classNumber: "",
+  roomNumber: "",
+  building: "",
   instructions: "",
 };
 
@@ -62,7 +59,10 @@ export function Storefront() {
 
       if (!session) return;
       setCurrentUser(session.user);
-      setDeliveryAddress(session.user.deliveryAddress ?? emptyDeliveryAddress);
+      setDeliveryAddress({
+        ...emptyDeliveryAddress,
+        ...session.user.deliveryAddress,
+      });
     });
   }, []);
 
@@ -122,7 +122,10 @@ export function Storefront() {
       const session = establishUserSession(foundUser, users);
       setUsers(session.users);
       setCurrentUser(session.user);
-      setDeliveryAddress(session.user.deliveryAddress ?? emptyDeliveryAddress);
+      setDeliveryAddress({
+        ...emptyDeliveryAddress,
+        ...session.user.deliveryAddress,
+      });
       setDeliveryStatus("");
       setForm({ name: "", email: "", password: "", confirmPassword: "" });
       setStatus(`Welcome back, ${foundUser.name}!`);
@@ -183,7 +186,7 @@ export function Storefront() {
     setUsers(nextUsers);
     writeUsers(nextUsers);
     setCurrentUser(updatedUser);
-    setDeliveryStatus("Delivery address saved to your account.");
+    setDeliveryStatus("Class and room saved to your account.");
   };
 
   return (

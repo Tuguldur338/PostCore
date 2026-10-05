@@ -10,12 +10,9 @@ export type User = {
 
 export type DeliveryAddress = {
   recipient: string;
-  street: string;
-  apartment: string;
-  city: string;
-  region: string;
-  postalCode: string;
-  country: string;
+  classNumber: string;
+  roomNumber: string;
+  building: string;
   instructions: string;
 };
 

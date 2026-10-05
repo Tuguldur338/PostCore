@@ -16,8 +16,8 @@ type ProductFormState = {
   category: string;
   fitsFor: string;
   image: string;
-  deliveryLocation: string;
-  deliveryCountry: string;
+  pickupClass: string;
+  pickupRoom: string;
   deliveryMethod: string;
 };
 
@@ -32,8 +32,8 @@ const emptyProductForm: ProductFormState = {
   category: "",
   fitsFor: "",
   image: "",
-  deliveryLocation: "",
-  deliveryCountry: "",
+  pickupClass: "",
+  pickupRoom: "",
   deliveryMethod: "",
 };
 
@@ -181,10 +181,9 @@ export default function SellPage() {
     };
 
     const deliveryNote = [
-      productForm.deliveryLocation.trim() &&
-        `Drop-off: ${productForm.deliveryLocation.trim()}`,
-      productForm.deliveryCountry.trim() &&
-        `Delivery country: ${productForm.deliveryCountry.trim()}`,
+      productForm.pickupClass.trim() &&
+        `Pickup class: ${productForm.pickupClass.trim()}`,
+      productForm.pickupRoom.trim() && `Room: ${productForm.pickupRoom.trim()}`,
       productForm.deliveryMethod.trim() &&
         `Method: ${productForm.deliveryMethod.trim()}`,
     ]
@@ -347,25 +346,24 @@ export default function SellPage() {
                   Delivery details
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Help buyers know where to pick up or where the item can be
-                  sent.
+                  Let buyers know which class and room to find you in.
                 </p>
                 <div className="mt-4 grid gap-4 md:grid-cols-3">
                   <input
-                    value={productForm.deliveryLocation}
+                    value={productForm.pickupClass}
                     onChange={(event) =>
-                      handleInputChange("deliveryLocation", event.target.value)
+                      handleInputChange("pickupClass", event.target.value)
                     }
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                    placeholder="Drop-off location"
+                    placeholder="Your class (e.g. 10B)"
                   />
                   <input
-                    value={productForm.deliveryCountry}
+                    value={productForm.pickupRoom}
                     onChange={(event) =>
-                      handleInputChange("deliveryCountry", event.target.value)
+                      handleInputChange("pickupRoom", event.target.value)
                     }
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                    placeholder="Country"
+                    placeholder="Room number (e.g. 204)"
                   />
                   <input
                     value={productForm.deliveryMethod}
@@ -373,7 +371,7 @@ export default function SellPage() {
                       handleInputChange("deliveryMethod", event.target.value)
                     }
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                    placeholder="Mailbox / courier / pickup"
+                    placeholder="Hand-off / locker / pickup"
                   />
                 </div>
               </div>

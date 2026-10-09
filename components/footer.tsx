@@ -1,6 +1,6 @@
 export function Footer() {
   return (
-    <footer className="rounded-[1.8rem] border border-orange-200 bg-[#111827] px-6 py-10 text-sm text-slate-300 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.45)] sm:px-8 lg:px-10">
+    <footer className="site-footer rounded-[1.8rem] border border-orange-200 bg-[#111827] px-6 py-10 text-sm text-slate-300 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.45)] sm:px-8 lg:px-10">
       <div className="flex flex-col gap-8 lg:flex-row lg:justify-between">
         <div className="max-w-md space-y-3">
           <p className="text-lg font-semibold text-white">PostCore</p>

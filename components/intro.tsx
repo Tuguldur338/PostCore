@@ -54,7 +54,7 @@ export function Intro() {
   return (
     <section
       id="home"
-      className="overflow-hidden rounded-[1.75rem] border border-orange-200 bg-[linear-gradient(135deg,#0f172a_0%,#172554_55%,#111827_100%)] p-6 text-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.75)] sm:p-8"
+      className="intro-panel overflow-hidden rounded-[1.75rem] border border-orange-200 bg-[linear-gradient(135deg,#0f172a_0%,#172554_55%,#111827_100%)] p-6 text-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.75)] sm:p-8"
     >
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
         <div className="hero-reveal">
@@ -101,8 +101,8 @@ export function Intro() {
           </div>
         </div>
 
-        <div className="hero-reveal-delay rounded-[1.5rem] border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
-          <div className="rounded-[1.25rem] border border-white/10 bg-[#111827]/70 p-5">
+        <div className="intro-feature hero-reveal-delay rounded-[1.5rem] border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+          <div className="intro-feature-list rounded-[1.25rem] border border-white/10 bg-[#111827]/70 p-5">
             <p className="text-sm uppercase tracking-[0.3em] text-slate-400">
               Curated this week
             </p>
@@ -112,7 +112,7 @@ export function Intro() {
               <li>• Everyday essentials for student life</li>
             </ul>
           </div>
-          <div className="mt-4 rounded-[1.25rem] border border-orange-400/20 bg-orange-500/10 p-4 text-sm text-orange-100">
+          <div className="intro-note mt-4 rounded-[1.25rem] border border-orange-400/20 bg-orange-500/10 p-4 text-sm text-orange-100">
             Quick campus finds for study days, snack breaks, and everyday
             routines.
           </div>

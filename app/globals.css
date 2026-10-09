@@ -3,8 +3,8 @@
 :root {
   --background: #0b1224;
   --background-soft: #111827;
-  --surface: #ffffff;
-  --surface-soft: #f8fafc;
+  --surface: #172033;
+  --surface-soft: #111827;
   --panel: #0f172a;
   --panel-strong: #111827;
   --panel-soft: #172033;
@@ -267,6 +267,178 @@ html[data-theme="light"] body {
   .hero-reveal-delay {
     animation: hero-reveal 750ms 100ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+}
+
+html:not([data-theme="light"]) .bg-white {
+  background-color: var(--panel);
+}
+
+html:not([data-theme="light"]) .bg-slate-50 {
+  background-color: var(--panel-soft);
+}
+
+html:not([data-theme="light"]) .bg-slate-100 {
+  background-color: var(--panel-strong);
+}
+
+html:not([data-theme="light"]) .bg-slate-200 {
+  background-color: #334155;
+}
+
+html:not([data-theme="light"]) .text-slate-900,
+html:not([data-theme="light"]) .text-slate-800 {
+  color: var(--foreground);
+}
+
+html:not([data-theme="light"]) .text-slate-700 {
+  color: var(--foreground-strong);
+}
+
+html:not([data-theme="light"]) .text-slate-600,
+html:not([data-theme="light"]) .text-slate-500,
+html:not([data-theme="light"]) .text-slate-400 {
+  color: var(--muted);
+}
+
+html:not([data-theme="light"]) .border-slate-100,
+html:not([data-theme="light"]) .border-slate-200,
+html:not([data-theme="light"]) .border-slate-300 {
+  border-color: var(--border);
+}
+
+html:not([data-theme="light"]) .hover\:bg-slate-200:hover {
+  background-color: #334155;
+}
+
+html:not([data-theme="light"]) .bg-sky-50,
+html:not([data-theme="light"]) .bg-sky-100 {
+  background-color: #102d43;
+}
+
+html:not([data-theme="light"]) .text-sky-900,
+html:not([data-theme="light"]) .text-sky-800,
+html:not([data-theme="light"]) .text-sky-700,
+html:not([data-theme="light"]) .text-sky-600 {
+  color: #bae6fd;
+}
+
+html:not([data-theme="light"]) .border-sky-200 {
+  border-color: #28506a;
+}
+
+html:not([data-theme="light"]) .bg-orange-50 {
+  background-color: #352316;
+}
+
+html:not([data-theme="light"]) .text-orange-700,
+html:not([data-theme="light"]) .text-orange-600 {
+  color: #fdba74;
+}
+
+html:not([data-theme="light"]) .bg-amber-50 {
+  background-color: #382b16;
+}
+
+html:not([data-theme="light"]) .text-amber-900,
+html:not([data-theme="light"]) .text-amber-800,
+html:not([data-theme="light"]) .text-amber-700 {
+  color: #fde68a;
+}
+
+html:not([data-theme="light"]) .border-amber-200 {
+  border-color: #665022;
+}
+
+html:not([data-theme="light"]) .bg-rose-100 {
+  background-color: #3b1c28;
+}
+
+html:not([data-theme="light"]) .text-rose-700 {
+  color: #fecdd3;
+}
+
+html:not([data-theme="light"]) .border-rose-200 {
+  border-color: #713342;
+}
+
+html:not([data-theme="light"]) .bg-red-50 {
+  background-color: #3b1e22;
+}
+
+html:not([data-theme="light"]) .text-red-700,
+html:not([data-theme="light"]) .text-red-600 {
+  color: #fecaca;
+}
+
+html:not([data-theme="light"]) .border-red-200 {
+  border-color: #71343a;
+}
+
+html:not([data-theme="light"]) .bg-emerald-50 {
+  background-color: #12352d;
+}
+
+html:not([data-theme="light"]) .text-emerald-900,
+html:not([data-theme="light"]) .text-emerald-800 {
+  color: #a7f3d0;
+}
+
+html:not([data-theme="light"]) .border-emerald-200 {
+  border-color: #23634f;
+}
+
+html[data-theme="light"] .intro-panel {
+  border-color: #fed7aa;
+  background: linear-gradient(135deg, #ffffff 0%, #edf6ff 58%, #fff7ed 100%);
+  color: #0f172a;
+}
+
+html[data-theme="light"] .intro-panel .text-orange-200 {
+  color: #c2410c;
+}
+
+html[data-theme="light"] .intro-panel .text-slate-300,
+html[data-theme="light"] .intro-panel .text-slate-200,
+html[data-theme="light"] .intro-panel .text-slate-100 {
+  color: #334155;
+}
+
+html[data-theme="light"] .intro-panel .text-slate-400 {
+  color: #64748b;
+}
+
+html[data-theme="light"] .intro-feature {
+  border-color: #cbd5e1;
+  background: rgb(255 255 255 / 70%);
+}
+
+html[data-theme="light"] .intro-feature-list {
+  border-color: #cbd5e1;
+  background: #ffffff;
+}
+
+html[data-theme="light"] .intro-note {
+  border-color: #fed7aa;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+html[data-theme="light"] .site-footer {
+  border-color: var(--border);
+  background: #ffffff;
+  color: #475569;
+}
+
+html[data-theme="light"] .site-footer .text-white {
+  color: #0f172a;
+}
+
+html[data-theme="light"] .site-footer .text-slate-400 {
+  color: #64748b;
+}
+
+html[data-theme="light"] .site-footer .hover\:text-white:hover {
+  color: #0f172a;
 }
 
 @keyframes hero-reveal {

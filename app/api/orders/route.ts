@@ -64,7 +64,8 @@ export async function POST(request: Request) {
 
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL;
-  if (!apiKey || !from) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!apiKey || !from || !adminEmail) {
     return Response.json(
       { message: "The server email service is not configured.", sent: false },
       { status: 503 },
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
       },
       body: JSON.stringify({
         from,
-        to: [recipient],
+        to: [recipient, adminEmail],
         subject: `Purchase request: ${order.productName.trim()}`,
         text,
       }),

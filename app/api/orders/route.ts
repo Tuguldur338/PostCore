@@ -1,4 +1,8 @@
 import { formatMntPrice } from "@/components/currency";
+import {
+  getDeliveryAddressError,
+  isValidClassNumber,
+} from "@/components/delivery-validation";
 
 type DeliveryAddress = {
   recipient: string;
@@ -44,8 +48,10 @@ function isOrderNotification(value: unknown): value is OrderNotification {
     isNonEmptyString(order.placedAt) &&
     Boolean(address) &&
     isNonEmptyString(address?.recipient) &&
-    isNonEmptyString(address?.classNumber) &&
-    isNonEmptyString(address?.roomNumber)
+    isValidClassNumber(address?.classNumber) &&
+    (isNonEmptyString(address?.roomNumber) ||
+      isNonEmptyString(address?.building)) &&
+    getDeliveryAddressError(address ?? {}) === null
   );
 }
 

@@ -50,20 +50,20 @@ export function Header() {
 
   return (
     <header
-      className={`sticky top-0 z-50 rounded-[1.5rem] border px-4 py-3 shadow-[0_18px_45px_-20px_rgba(15,23,42,0.75)] sm:px-5 ${
+      className={`site-header sticky top-0 z-50 rounded-[1.5rem] border px-4 py-3 shadow-[0_18px_45px_-20px_rgba(15,23,42,0.75)] sm:px-5 ${
         isDark
           ? "border-orange-200 bg-[#0f172a] text-white"
           : "border-orange-300 bg-white text-slate-900"
       }`}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 xl:flex xl:flex-row xl:items-center xl:justify-between">
+      <div className="site-header-row grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 xl:flex xl:flex-row xl:items-center xl:justify-between">
         <Link
           href="/"
-          className={`flex min-w-0 items-center gap-3 rounded-2xl px-3 py-2 transition-all duration-200 ${
+          className={`site-brand flex min-w-0 items-center gap-3 rounded-2xl px-3 py-2 transition-all duration-200 ${
             isDark ? "hover:bg-white/30" : "hover:bg-orange-100"
           }`}
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-400 p-1 shadow-lg">
+          <div className="site-brand-mark flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-400 p-1 shadow-lg">
             <Image
               src="/brand-mark.svg"
               alt="PostCore logo"
@@ -73,9 +73,10 @@ export function Header() {
             />
           </div>
           <div>
-            <p className="text-lg font-semibold">PostCore</p>
+            <p className="site-brand-title text-lg font-semibold">PostCore</p>
+
             <p
-              className={`text-sm ${isDark ? "text-slate-300" : "text-slate-600"}`}
+              className={`site-brand-subtitle text-sm ${isDark ? "text-slate-300" : "text-slate-600"}`}
             >
               Campus resale marketplace
             </p>
@@ -91,6 +92,7 @@ export function Header() {
             } [&::-webkit-details-marker]:hidden`}
           >
             <span>Menu</span>
+
             <span
               aria-hidden="true"
               className={isDark ? "text-slate-400" : "text-slate-500"}
@@ -108,30 +110,42 @@ export function Header() {
             <Link href="/" className="rounded-xl px-3 py-2.5 hover:bg-white/10">
               Home
             </Link>
+
             <Link
               href="/sell"
               className="rounded-xl px-3 py-2.5 hover:bg-white/10"
             >
               Sell
             </Link>
+
             <Link
               href="/products"
               className="rounded-xl px-3 py-2.5 hover:bg-white/10"
             >
               Products
             </Link>
+
             <Link
               href="/saved"
               className="rounded-xl px-3 py-2.5 hover:bg-white/10"
             >
               Saved
             </Link>
+
             <Link
               href="/contacts"
               className="rounded-xl px-3 py-2.5 hover:bg-white/10"
             >
               Contacts
             </Link>
+
+            <Link
+              href="/orders"
+              className="rounded-xl px-3 py-2.5 hover:bg-white/10"
+            >
+              Orders
+            </Link>
+
             <button
               type="button"
               onClick={toggleTheme}
@@ -139,6 +153,7 @@ export function Header() {
             >
               {isDark ? "Light mode" : "Night mode"}
             </button>
+
             <Link
               href="/account"
               className="rounded-xl bg-orange-500 px-3 py-2.5 text-white hover:bg-orange-400"
@@ -149,7 +164,7 @@ export function Header() {
         </details>
 
         <div
-          className={`group col-span-2 flex min-w-0 items-center gap-2 rounded-full border px-3 py-2 text-center transition-colors duration-200 xl:col-span-1 xl:min-w-60 xl:max-w-80 xl:flex-1 ${
+          className={`site-header-search group col-span-2 flex min-w-0 items-center gap-2 rounded-full border px-3 py-2 text-center transition-colors duration-200 xl:col-span-1 xl:min-w-60 xl:max-w-80 xl:flex-1 ${
             isDark
               ? "border-white/10 bg-white/10 hover:border-white/20 hover:bg-white/20"
               : "border-slate-300 bg-slate-100 hover:border-orange-300 hover:bg-orange-50"
@@ -223,6 +238,16 @@ export function Header() {
             }`}
           >
             Contacts
+          </Link>
+          <Link
+            href="/orders"
+            className={`smooth-transition rounded-full px-3 py-2 transition-colors duration-200 ease-out ${
+              isDark
+                ? "hover:bg-white/10 hover:text-white"
+                : "hover:bg-orange-100 hover:text-orange-700"
+            }`}
+          >
+            Orders
           </Link>
           <button
             type="button"

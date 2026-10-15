@@ -8,6 +8,41 @@ import type { Product } from "./types";
 
 const favoritesStorageKey = "postcore-favorites";
 
+function QuantityEditor({
+  product,
+  onSave,
+}: {
+  product: Product;
+  onSave: (quantity: number) => void;
+}) {
+  const [value, setValue] = useState(product.quantity?.toString() ?? "");
+
+  return (
+    <label className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-700">
+      Qty
+      <input
+        type="number"
+        min="0"
+        step="1"
+        inputMode="numeric"
+        value={value}
+        placeholder="—"
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={() => {
+          const quantity = Number(value);
+          if (value !== "" && Number.isSafeInteger(quantity) && quantity >= 0) {
+            onSave(quantity);
+          } else {
+            setValue(product.quantity?.toString() ?? "");
+          }
+        }}
+        className="w-16 bg-transparent py-1 outline-none"
+        aria-label={`Quantity of ${product.name}`}
+      />
+    </label>
+  );
+}
+
 function isUnavailable(product: Product): boolean {
   return Boolean(product.outOfStock) || product.quantity === 0;
 }
@@ -77,6 +112,7 @@ type CatalogProps = {
   onAvailabilityChange?: (productId: string, outOfStock: boolean) => void;
   onQuantityChange?: (productId: string, quantity: number) => void;
   onRemoveProduct?: (productId: string) => void;
+  onPurchaseSuccess?: (productId: string, quantity: number) => void;
 };
 
 export function Catalog({
@@ -88,6 +124,7 @@ export function Catalog({
   onAvailabilityChange,
   onQuantityChange,
   onRemoveProduct,
+  onPurchaseSuccess,
 }: CatalogProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
@@ -351,25 +388,12 @@ export function Catalog({
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
                     <label className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-700">
                       Qty
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        inputMode="numeric"
-                        value={product.quantity ?? ""}
-                        placeholder="—"
-                        onChange={(event) => {
-                          const quantity = Number(event.target.value);
-                          if (
-                            event.target.value !== "" &&
-                            Number.isSafeInteger(quantity) &&
-                            quantity >= 0
-                          ) {
-                            onQuantityChange?.(product.id, quantity);
-                          }
-                        }}
-                        className="w-16 bg-transparent py-1 outline-none"
-                        aria-label={`Quantity of ${product.name}`}
+                      <QuantityEditor
+                        key={`${product.id}:${product.quantity ?? "unlimited"}`}
+                        product={product}
+                        onSave={(quantity) =>
+                          onQuantityChange?.(product.id, quantity)
+                        }
                       />
                     </label>
                     <button
@@ -461,6 +485,7 @@ export function Catalog({
         <CheckoutDialog
           product={checkoutProduct}
           onClose={() => setCheckoutProduct(null)}
+          onPurchaseSuccess={onPurchaseSuccess}
         />
       ) : null}
     </div>

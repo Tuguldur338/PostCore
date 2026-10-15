@@ -37,21 +37,35 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 # PostCore
 
-## Purchase requests
+## Purchase requests and order management
 
-Checkout sends the purchase request through the server using Resend. Add these settings to `.env.local`:
+Purchase requests are stored in Supabase instead of being sent by email. To set up order management:
 
-```env
-RESEND_API_KEY=re_your_api_key
-RESEND_FROM_EMAIL=orders@your-verified-domain.com
-# Optional fallback for older listings without a seller email
-SELLER_NOTIFICATION_EMAIL=your-inbox@gmail.com
-```
+1. Create a Supabase project and run [`supabase/schema.sql`](./supabase/schema.sql) in its SQL Editor. This creates the shared product catalog and an atomic order function that decrements available stock while saving each order. The row-level security policies allow public catalog reads, but only users with the trusted `marketing_admin` app-metadata role can manage products or orders.
+2. In Supabase Authentication, enable email/password sign-in, disable public sign-ups, and create the marketing admin user. Set a strong password and complete any required email confirmation. In the Supabase SQL Editor, grant that account the trusted role by replacing the placeholder email below with the admin account's email:
 
-Create a Resend account and API key, verify a sending domain, and use an address on that domain for `RESEND_FROM_EMAIL`. New listings use the signed-in seller's account email. If server email is unavailable, checkout provides a prefilled email draft link; the buyer must open and send it. Built-in sample listings have no seller contact and cannot accept purchase requests. Keep the API key private in `.env.local`, which is ignored by Git, and restart the development server after setting the values.
+   ```sql
+   update auth.users
+   set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
+     || '{"role":"marketing_admin"}'::jsonb
+   where email = 'tselmeg.n2016@orkhonschool.edu.mn';
+   ```
 
-For the deployed Netlify site, `.env.local` is not used. Add `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, and optionally `SELLER_NOTIFICATION_EMAIL` under **Project configuration → Environment variables** in the Netlify UI (make sure the **Functions** scope is included), then trigger a new deploy so the values take effect. The site does not process payments or keep a shared order database.
+   Confirm that exactly one user was updated. The app metadata is managed by Supabase and cannot be changed by the user through normal sign-up or profile updates. If that account was already signed in, sign out and sign in again so the session receives the updated role.
+3. Add these variables to `.env.local` and restart the development server:
+
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
+   MARKETING_ADMIN_EMAIL=tselmeg.n2016@orkhonschool.edu.mn
+   ```
+
+   Get the project URL and publishable key from **Supabase → Project Settings → API Keys**. The legacy anon key is also supported as `NEXT_PUBLIC_SUPABASE_ANON_KEY`. The Supabase URL and publishable/anon key are intended for browser use; the database's row-level security policies protect order data. Do not add a Supabase service-role key to the application. You can copy `.env.example` as a template, replacing its placeholders with the actual project values.
+4. Open `/orders` and sign in with the configured admin account to review new requests, mark them completed, or delete them. The same admin session is required to add listings at `/sell` and manage inventory at `/products`.
+5. For a deployed site, add the same variables to the hosting provider's environment-variable settings and redeploy. `.env.local` is only used for local development.
+
+The website does not process payments. Orders remain in the Supabase database until deleted. A finite product quantity decreases only when an order is successfully saved; orders that cannot be fulfilled because stock has changed are rejected without reducing inventory. The two built-in sample products have unlimited stock.
 
 ## Admin and selling
 
-The first account to establish a signed-in session in a browser is assigned the marketplace admin role. Only that account can create listings; later accounts are student accounts. Accounts and roles are stored in that browser's local storage, so this is suitable only for a local prototype. A shared school-wide admin and secure role enforcement require server-side authentication and shared persistent storage. Accounts in this prototype do not verify ownership of their email address.
+Products and inventory are shared through Supabase. Existing browser-local listings are imported the first time the marketing admin opens `/sell` in the browser that contains those listings. Student account profiles are still browser-local and are not a shared authentication system. To apply later schema changes, run the updated `supabase/schema.sql` again in the Supabase SQL Editor; its table, policy, and function setup is safe to rerun.

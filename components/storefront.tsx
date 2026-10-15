@@ -8,9 +8,10 @@ import {
   restoreUserSession,
   writeUsers,
 } from "@/components/auth-store";
+import { getDeliveryAddressError } from "@/components/delivery-validation";
 import { Catalog } from "@/components/catalog";
 import { Intro } from "@/components/intro";
-import { readProducts, seedProducts } from "@/components/product-store";
+import { fetchSharedProducts } from "@/components/product-store";
 import type {
   AuthForm,
   AuthMode,
@@ -42,8 +43,9 @@ export function Storefront() {
   const [deliveryAddress, setDeliveryAddress] =
     useState<DeliveryAddress>(emptyDeliveryAddress);
   const [deliveryStatus, setDeliveryStatus] = useState("");
-  const [products, setProducts] = useState<Product[]>(seedProducts);
-  const [hasSellerProducts, setHasSellerProducts] = useState(true);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [hasSellerProducts, setHasSellerProducts] = useState(false);
+  const [catalogError, setCatalogError] = useState("");
   const [status, setStatus] = useState(
     "Create an account or sign in to manage your student marketplace profile.",
   );
@@ -53,10 +55,6 @@ export function Storefront() {
       const session = restoreUserSession();
       setUsers(session?.users ?? readUsers());
 
-      const savedProducts = readProducts();
-      setProducts(savedProducts);
-      setHasSellerProducts(savedProducts.length > 0);
-
       if (!session) return;
       setCurrentUser(session.user);
       setDeliveryAddress({
@@ -64,6 +62,29 @@ export function Storefront() {
         ...session.user.deliveryAddress,
       });
     });
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    void fetchSharedProducts()
+      .then((sharedProducts) => {
+        if (!isActive) return;
+        setProducts(sharedProducts);
+        setHasSellerProducts(sharedProducts.length > 0);
+        setCatalogError("");
+      })
+      .catch((loadError: unknown) => {
+        if (isActive) {
+          setCatalogError(
+            loadError instanceof Error
+              ? loadError.message
+              : "The product catalog could not be loaded.",
+          );
+        }
+      });
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -179,6 +200,12 @@ export function Storefront() {
     event.preventDefault();
     if (!currentUser) return;
 
+    const validationError = getDeliveryAddressError(deliveryAddress);
+    if (validationError) {
+      setDeliveryStatus(validationError);
+      return;
+    }
+
     const updatedUser = { ...currentUser, deliveryAddress };
     const nextUsers = users.map((user) =>
       user.id === currentUser.id ? updatedUser : user,
@@ -186,7 +213,7 @@ export function Storefront() {
     setUsers(nextUsers);
     writeUsers(nextUsers);
     setCurrentUser(updatedUser);
-    setDeliveryStatus("Class and room saved to your account.");
+    setDeliveryStatus("Delivery destination saved to your account.");
   };
 
   return (
@@ -197,7 +224,31 @@ export function Storefront() {
         id="items"
         className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]"
       >
-        <Catalog products={products} showProductCards={hasSellerProducts} />
+        <div className="min-w-0">
+          {catalogError ? (
+            <p role="alert" className="mb-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">
+              {catalogError}
+            </p>
+          ) : null}
+          <Catalog
+            products={products}
+            showProductCards={hasSellerProducts}
+            onPurchaseSuccess={() => {
+              void fetchSharedProducts()
+                .then((sharedProducts) => {
+                  setProducts(sharedProducts);
+                  setHasSellerProducts(sharedProducts.length > 0);
+                })
+                .catch((loadError: unknown) => {
+                  setCatalogError(
+                    loadError instanceof Error
+                      ? loadError.message
+                      : "The product catalog could not be refreshed.",
+                  );
+                });
+            }}
+          />
+        </div>
 
         <div
           id="account"

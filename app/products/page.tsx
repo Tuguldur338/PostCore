@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { restoreUserSession } from "@/components/auth-store";
 import { Catalog } from "@/components/catalog";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
-import { readProducts, writeProducts } from "@/components/product-store";
+import { fetchSharedProducts } from "@/components/product-store";
 import type { Product } from "@/components/types";
 
 export default function ProductsPage() {
@@ -15,40 +14,72 @@ export default function ProductsPage() {
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const session = restoreUserSession();
-      setCanManageListings(session?.user.role === "admin");
-      setProducts(readProducts());
-    });
+    let isActive = true;
+    void Promise.all([
+      fetchSharedProducts(),
+      fetch("/api/admin/products", { cache: "no-store" }),
+    ])
+      .then(async ([sharedProducts, adminResponse]) => {
+        const adminResult = (await adminResponse.json()) as {
+          message?: string;
+          authorized?: boolean;
+        };
+        if (!isActive) return;
+        setProducts(sharedProducts);
+        setCanManageListings(adminResponse.ok && adminResult.authorized === true);
+        if (!adminResponse.ok && adminResponse.status !== 401 && adminResponse.status !== 403) {
+          setStatus(adminResult.message ?? "Admin access could not be checked.");
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (isActive) {
+          setStatus(
+            loadError instanceof Error
+              ? loadError.message
+              : "The product catalog could not be loaded.",
+          );
+        }
+      });
+    return () => {
+      isActive = false;
+    };
   }, []);
 
-  const saveProducts = (nextProducts: Product[]) => {
-    if (!writeProducts(nextProducts)) {
+  const reloadProducts = async () => {
+    setProducts(await fetchSharedProducts());
+  };
+
+  const updateInventory = async (change: {
+    id: string;
+    quantity?: number;
+    outOfStock?: boolean;
+  }) => {
+    try {
+      const response = await fetch("/api/admin/products", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(change),
+      });
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message ?? "Inventory could not be updated.");
+      }
+      await reloadProducts();
+      setStatus("Inventory updated.");
+    } catch (updateError) {
       setStatus(
-        "Could not save the inventory change. Browser storage may be full.",
+        updateError instanceof Error
+          ? updateError.message
+          : "Inventory could not be updated.",
       );
-      return;
     }
-
-    setProducts(nextProducts);
-    setStatus("Inventory updated.");
   };
 
-  const handleAvailabilityChange = (productId: string, outOfStock: boolean) => {
-    saveProducts(
-      products.map((product) =>
-        product.id === productId ? { ...product, outOfStock } : product,
-      ),
-    );
-  };
+  const handleAvailabilityChange = (productId: string, outOfStock: boolean) =>
+    void updateInventory({ id: productId, outOfStock });
 
-  const handleQuantityChange = (productId: string, quantity: number) => {
-    saveProducts(
-      products.map((product) =>
-        product.id === productId ? { ...product, quantity } : product,
-      ),
-    );
-  };
+  const handleQuantityChange = (productId: string, quantity: number) =>
+    void updateInventory({ id: productId, quantity });
 
   const handleRemoveProduct = (productId: string) => {
     const product = products.find((item) => item.id === productId);
@@ -59,7 +90,27 @@ export default function ProductsPage() {
       return;
     }
 
-    saveProducts(products.filter((item) => item.id !== productId));
+    void (async () => {
+      try {
+        const response = await fetch("/api/admin/products", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: productId }),
+        });
+        const result = (await response.json()) as { message?: string };
+        if (!response.ok) {
+          throw new Error(result.message ?? "The product could not be removed.");
+        }
+        await reloadProducts();
+        setStatus("Product removed.");
+      } catch (removeError) {
+        setStatus(
+          removeError instanceof Error
+            ? removeError.message
+            : "The product could not be removed.",
+        );
+      }
+    })();
   };
 
   return (
@@ -101,6 +152,15 @@ export default function ProductsPage() {
           onAvailabilityChange={handleAvailabilityChange}
           onQuantityChange={handleQuantityChange}
           onRemoveProduct={handleRemoveProduct}
+          onPurchaseSuccess={() => {
+            void reloadProducts().catch((loadError: unknown) => {
+              setStatus(
+                loadError instanceof Error
+                  ? loadError.message
+                  : "The catalog could not be refreshed.",
+              );
+            });
+          }}
         />
         <Footer />
       </main>

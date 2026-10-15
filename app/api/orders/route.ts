@@ -1,123 +1,139 @@
+import { createClient } from "@supabase/supabase-js";
 import { getDeliveryAddressError } from "@/components/delivery-validation";
+import {
+  getSupabaseConfig,
+  supabaseSetupMessage,
+} from "@/lib/supabase/config";
 
 type PurchaseRequest = {
-  orderReference?: unknown;
-  productName?: unknown;
-  price?: unknown;
-  sellerEmail?: unknown;
-  placedAt?: unknown;
-  deliveryAddress?: {
-    recipient?: unknown;
-    classNumber?: unknown;
-    roomNumber?: unknown;
-    building?: unknown;
-    instructions?: unknown;
-  };
+  productId?: unknown;
+  quantity?: unknown;
+  deliveryAddress?: unknown;
+};
+
+type DeliveryAddress = {
+  recipient: string;
+  classNumber: string;
+  roomNumber: string;
+  building: string;
+  instructions: string;
 };
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function isValidEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+function isDeliveryAddress(value: unknown): value is DeliveryAddress {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const address = value as Record<string, unknown>;
+  return (
+    typeof address.recipient === "string" &&
+    address.recipient.trim().length <= 200 &&
+    typeof address.classNumber === "string" &&
+    address.classNumber.length <= 20 &&
+    typeof address.roomNumber === "string" &&
+    address.roomNumber.length <= 100 &&
+    typeof address.building === "string" &&
+    address.building.length <= 20 &&
+    typeof address.instructions === "string" &&
+    address.instructions.length <= 1000
+  );
 }
 
 export async function POST(request: Request) {
+  const config = getSupabaseConfig();
+  if (!config) {
+    return Response.json(
+      { message: supabaseSetupMessage },
+      { status: 503 },
+    );
+  }
+
   let order: PurchaseRequest;
   try {
     order = (await request.json()) as PurchaseRequest;
   } catch {
     return Response.json(
-      { message: "The purchase request must contain valid JSON.", sent: false },
+      { message: "The order request must contain valid JSON." },
+      { status: 400 },
+    );
+  }
+
+  if (!order || typeof order !== "object") {
+    return Response.json(
+      { message: "The order request must be a JSON object." },
       { status: 400 },
     );
   }
 
   if (
-    !isNonEmptyString(order.orderReference) ||
-    !isNonEmptyString(order.productName) ||
-    !isNonEmptyString(order.price) ||
-    !isNonEmptyString(order.placedAt) ||
-    !order.deliveryAddress
+    !isNonEmptyString(order.productId) ||
+    order.productId.trim().length > 36 ||
+    typeof order.quantity !== "number" ||
+    !Number.isSafeInteger(order.quantity) ||
+    order.quantity < 1 ||
+    order.quantity > 2_147_483_647 ||
+    !isDeliveryAddress(order.deliveryAddress)
   ) {
     return Response.json(
-      { message: "The purchase request is missing required details.", sent: false },
+      { message: "The order request is missing valid product or delivery details." },
       { status: 400 },
     );
   }
 
   const addressError = getDeliveryAddressError(order.deliveryAddress);
   if (addressError) {
-    return Response.json({ message: addressError, sent: false }, { status: 400 });
+    return Response.json({ message: addressError }, { status: 400 });
   }
 
-  const recipient = isNonEmptyString(order.sellerEmail)
-    ? order.sellerEmail.trim()
-    : process.env.SELLER_NOTIFICATION_EMAIL?.trim();
-  if (!recipient || !isValidEmail(recipient)) {
+  const client = createClient(config.url, config.anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+  });
+  const orderReference = crypto.randomUUID().toUpperCase();
+  const { data, error } = await client.rpc("place_order", {
+    p_product_id: order.productId.trim(),
+    p_quantity: order.quantity,
+    p_delivery_address: {
+      recipient: order.deliveryAddress.recipient.trim(),
+      classNumber: order.deliveryAddress.classNumber.trim(),
+      roomNumber: order.deliveryAddress.roomNumber.trim(),
+      building: order.deliveryAddress.building.trim(),
+      instructions: order.deliveryAddress.instructions.trim(),
+    },
+    p_order_reference: orderReference,
+  });
+
+  if (error) {
+    if (error.message.includes("PRODUCT_NOT_FOUND")) {
+      return Response.json(
+        { message: "This product is no longer available." },
+        { status: 404 },
+      );
+    }
+    if (error.message.includes("INSUFFICIENT_STOCK")) {
+      return Response.json(
+        { message: "There is not enough stock for that quantity. Refresh the catalog and try again." },
+        { status: 409 },
+      );
+    }
+    if (error.message.includes("PRODUCT_UNAVAILABLE")) {
+      return Response.json(
+        { message: "This product is currently unavailable." },
+        { status: 409 },
+      );
+    }
+    console.error("Failed to save purchase request:", error.message);
     return Response.json(
-      { message: "This listing does not have valid seller contact details.", sent: false },
-      { status: 400 },
+      { message: "The order could not be saved. Please try again." },
+      { status: 500 },
     );
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (!apiKey || !from || !adminEmail) {
-    return Response.json(
-      { message: "The server email service is not configured.", sent: false },
-      { status: 503 },
-    );
-  }
-
-  const address = order.deliveryAddress;
-  const text = [
-    `Purchase request: ${order.productName.trim()}`,
-    `Price: ${order.price.trim()}`,
-    `Order reference: ${order.orderReference.trim()}`,
-    `Placed at: ${order.placedAt.trim()}`,
-    "",
-    "Deliver to:",
-    `Student: ${String(address.recipient).trim()}`,
-    `Class: ${String(address.classNumber).trim()}`,
-    isNonEmptyString(address.roomNumber) && `Room: ${address.roomNumber.trim()}`,
-    isNonEmptyString(address.building) && `Floor: ${address.building.trim()}`,
-    isNonEmptyString(address.instructions) &&
-      `Instructions: ${address.instructions.trim()}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-  let resendResponse: Response;
-  try {
-    resendResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [recipient, adminEmail],
-        subject: `Purchase request: ${order.productName.trim()}`,
-        text,
-      }),
-    });
-  } catch {
-    return Response.json(
-      { message: "The server could not reach the email service.", sent: false },
-      { status: 502 },
-    );
-  }
-
-  if (!resendResponse.ok) {
-    return Response.json(
-      { message: "The email service could not send the purchase request.", sent: false },
-      { status: 502 },
-    );
-  }
-
-  return Response.json({ sent: true });
+  return Response.json({
+    orderReference: typeof data === "string" ? data : orderReference,
+  });
 }

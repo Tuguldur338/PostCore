@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
-import { restoreUserSession } from "@/components/auth-store";
 import { parseMntAmount } from "@/components/currency";
-import { readProducts, writeProducts } from "@/components/product-store";
-import type { Product, User } from "@/components/types";
+import { isValidClassNumber } from "@/components/delivery-validation";
+import { readProducts } from "@/components/product-store";
+import type { Product } from "@/components/types";
 
 type ProductFormState = {
   name: string;
@@ -23,6 +24,9 @@ type ProductFormState = {
 
 const maxImageDimension = 1280;
 const maxImageDataUrlLength = 220_000;
+const legacyImportStorageKey = "postcore-shared-products-imported";
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const emptyProductForm: ProductFormState = {
   name: "",
@@ -97,17 +101,80 @@ export default function SellPage() {
   const [productForm, setProductForm] =
     useState<ProductFormState>(emptyProductForm);
   const [status, setStatus] = useState("Add an item to start selling.");
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [isCompressingImage, setIsCompressingImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const session = restoreUserSession();
-    queueMicrotask(() => {
-      setCurrentUser(session?.user ?? null);
-      setIsSessionReady(true);
-    });
+    let isActive = true;
+    const verifyAdminAndImportLegacyProducts = async () => {
+      try {
+        const response = await fetch("/api/admin/products", {
+          cache: "no-store",
+        });
+        const result = (await response.json()) as {
+          message?: string;
+          authorized?: boolean;
+        };
+        if (!response.ok || result.authorized !== true) {
+          if (isActive && response.status !== 401 && response.status !== 403) {
+            setStatus(result.message ?? "Admin access could not be checked.");
+          }
+          return;
+        }
+
+        if (!isActive) return;
+        setIsAdmin(true);
+
+        if (window.localStorage.getItem(legacyImportStorageKey) === "true") {
+          return;
+        }
+        const legacyProducts = readProducts().filter((product) =>
+          uuidPattern.test(product.id),
+        );
+        for (const legacyProduct of legacyProducts) {
+          const image = legacyProduct.image.startsWith("data:")
+            ? await compressImage(legacyProduct.image)
+            : legacyProduct.image;
+          const importResponse = await fetch("/api/admin/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...legacyProduct, image }),
+          });
+          const importResult = (await importResponse.json()) as {
+            message?: string;
+          };
+          if (!importResponse.ok) {
+            throw new Error(
+              importResult.message ??
+                "An existing listing could not be imported.",
+            );
+          }
+        }
+        window.localStorage.setItem(legacyImportStorageKey, "true");
+        if (legacyProducts.length > 0 && isActive) {
+          setStatus(
+            `${legacyProducts.length} listing${legacyProducts.length === 1 ? "" : "s"} from this browser are now shared.`,
+          );
+        }
+      } catch (error) {
+        if (isActive) {
+          setStatus(
+            error instanceof Error
+              ? error.message
+              : "The product catalog could not be prepared.",
+          );
+        }
+      } finally {
+        if (isActive) setIsSessionReady(true);
+      }
+    };
+
+    void verifyAdminAndImportLegacyProducts();
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   const handleInputChange = (field: keyof ProductFormState, value: string) => {
@@ -138,8 +205,8 @@ export default function SellPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (currentUser?.role !== "admin") {
-      setStatus("Only the marketplace admin can add product listings.");
+    if (!isAdmin) {
+      setStatus("Sign in with the marketing admin account before adding listings.");
       return;
     }
 
@@ -164,6 +231,14 @@ export default function SellPage() {
       return;
     }
 
+    if (
+      productForm.pickupClass.trim() &&
+      !isValidClassNumber(productForm.pickupClass)
+    ) {
+      setStatus("Enter a pickup class from 1A to 12D, such as 10B.");
+      return;
+    }
+
     setIsSaving(true);
 
     const newProduct: Product = {
@@ -176,7 +251,6 @@ export default function SellPage() {
       image: productForm.image,
       category: productForm.category.trim() || "School Supplies",
       fitsFor: productForm.fitsFor.trim() || "Campus life",
-      sellerEmail: currentUser.email.trim().toLowerCase(),
       quantity,
     };
 
@@ -198,27 +272,23 @@ export default function SellPage() {
     };
 
     try {
-      const existingProducts = await Promise.all(
-        readProducts().map(async (product) => ({
-          ...product,
-          image: product.image.startsWith("data:")
-            ? await compressImage(product.image)
-            : product.image,
-        })),
-      );
-      const nextProducts = [productWithDelivery, ...existingProducts];
-
-      if (!writeProducts(nextProducts)) {
-        setStatus(
-          "Browser storage is full. Try a smaller photo or remove older listings.",
-        );
-        return;
+      const response = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(productWithDelivery),
+      });
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message ?? "The listing could not be saved.");
       }
-
       setProductForm(emptyProductForm);
       setStatus(`${newProduct.name} was added to your sell list.`);
-    } catch {
-      setStatus("The listing could not be saved. Try a smaller photo.");
+    } catch (error) {
+      setStatus(
+        error instanceof Error
+          ? error.message
+          : "The listing could not be saved. Try a smaller photo.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -245,15 +315,13 @@ export default function SellPage() {
 
           {!isSessionReady ? (
             <p className="mt-6 text-sm text-slate-600">Checking account...</p>
-          ) : !currentUser ? (
+          ) : !isAdmin ? (
             <div className="mt-6 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-700">
-              Create an account or sign in from the Account page. The first
-              account to sign in becomes the marketplace admin.
-            </div>
-          ) : currentUser.role !== "admin" ? (
-            <div className="mt-6 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
-              Your account is a student account. Only the first account to sign
-              in as the marketplace admin can create listings.
+              Sign in with the Supabase marketing admin account to manage shared
+              listings.{" "}
+              <Link className="font-semibold underline" href="/orders">
+                Open admin sign-in
+              </Link>
             </div>
           ) : (
             <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
@@ -356,6 +424,8 @@ export default function SellPage() {
                     }
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
                     placeholder="Your class (e.g. 10B)"
+                    pattern="\s*(?:[1-9]|1[0-2])[A-Da-d]\s*"
+                    title="Enter a class from 1A to 12D, such as 10B."
                   />
                   <input
                     value={productForm.pickupRoom}
@@ -380,16 +450,14 @@ export default function SellPage() {
                 <p className="text-sm text-slate-600">{status}</p>
                 <button
                   type="submit"
-                  disabled={!currentUser || isCompressingImage || isSaving}
+                  disabled={!isAdmin || isCompressingImage || isSaving}
                   className="smooth-transition rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-out hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {!currentUser
-                    ? "Sign in to sell"
-                    : isCompressingImage
-                      ? "Optimizing photo..."
-                      : isSaving
-                        ? "Saving..."
-                        : "Add product"}
+                  {isCompressingImage
+                    ? "Optimizing photo..."
+                    : isSaving
+                      ? "Saving..."
+                      : "Add product"}
                 </button>
               </div>
             </form>

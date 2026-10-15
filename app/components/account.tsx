@@ -1,5 +1,5 @@
 import type { ChangeEvent, FormEvent } from "react";
-import type { AuthForm, AuthMode, DeliveryAddress, User } from "./types";
+import type { AuthForm, AuthMode, DeliveryAddress, User } from "@/components/types";
 
 type AuthPanelProps = {
   currentUser: User | null;
@@ -141,10 +141,10 @@ export function Account({
                 onDeliveryAddressChange("building", event.target.value)
               }
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Floor (B1, ground floor, 1st to 4th floor)"
+              placeholder="1-4"
               aria-label="Floor (required if room number is empty)"
-              pattern="\s*(?:[Bb]1|[Gg]round [Ff]loor|1st [Ff]loor|2nd [Ff]loor|3rd [Ff]loor|4th [Ff]loor)\s*"
-              title="Enter B1, ground floor, or a floor from 1st to 4th."
+              pattern="[1-4]"
+              title="Enter a floor number from 1 to 4."
             />
             <textarea
               value={deliveryAddress.instructions}

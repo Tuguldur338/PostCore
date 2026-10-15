@@ -96,7 +96,7 @@ export function Account({
               Classroom delivery
             </p>
             <h3 className="mt-1 text-xl font-semibold text-slate-900">
-              Which class and room should we bring your order to?
+              Which class and room or floor should we bring your order to?
             </h3>
           </div>
           <form className="mt-4 space-y-3" onSubmit={onDeliveryAddressSubmit}>
@@ -121,26 +121,30 @@ export function Account({
                 className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
                 placeholder="Class (e.g. 10B)"
                 aria-label="Class number"
+                pattern="\s*(?:[1-9]|1[0-2])[A-Da-d]\s*"
+                title="Enter a class from 1A to 12D, such as 10B."
               />
               <input
-                required
                 value={deliveryAddress.roomNumber}
                 onChange={(event) =>
                   onDeliveryAddressChange("roomNumber", event.target.value)
                 }
                 className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-                placeholder="Room number (e.g. 204)"
-                aria-label="Room number"
+                placeholder="Room number (e.g. 204, optional if floor is entered)"
+                aria-label="Room number (optional if building or floor is entered)"
               />
             </div>
             <input
+              required={!deliveryAddress.roomNumber.trim()}
               value={deliveryAddress.building}
               onChange={(event) =>
                 onDeliveryAddressChange("building", event.target.value)
               }
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Building / floor (optional)"
-              aria-label="Building or floor"
+              placeholder="1-4"
+              aria-label="Floor (required if room number is empty)"
+              pattern="[1-4]"
+              title="Enter a floor number from 1 to 4."
             />
             <textarea
               value={deliveryAddress.instructions}
@@ -157,9 +161,23 @@ export function Account({
             >
               Save class and room
             </button>
-            <p aria-live="polite" className="text-sm text-slate-600">
-              {deliveryStatus}
-            </p>
+            {deliveryStatus ? (
+              <div
+                role={
+                  deliveryStatus.startsWith("Delivery destination saved")
+                    ? "status"
+                    : "alert"
+                }
+                aria-live="polite"
+                className={`rounded-xl border p-3 text-sm ${
+                  deliveryStatus.startsWith("Delivery destination saved")
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : "border-red-200 bg-red-50 text-red-700"
+                }`}
+              >
+                {deliveryStatus}
+              </div>
+            ) : null}
           </form>
         </section>
 

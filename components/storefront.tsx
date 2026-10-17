@@ -3,15 +3,16 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Account } from "@/components/account";
 import {
-  establishUserSession,
   readUsers,
-  restoreUserSession,
   writeUsers,
 } from "@/components/auth-store";
 import { getDeliveryAddressError } from "@/components/delivery-validation";
 import { Catalog } from "@/components/catalog";
 import { Intro } from "@/components/intro";
 import { fetchSharedProducts } from "@/components/product-store";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getSupabaseConfig } from "@/lib/supabase/config";
+import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 import type {
   AuthForm,
   AuthMode,
@@ -21,6 +22,8 @@ import type {
 } from "@/components/types";
 
 const sessionKey = "postcore-current-user";
+const authSetupMessage =
+  "Shared sign-in is not configured on this deployment. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel Project Settings, then redeploy.";
 
 const emptyDeliveryAddress: DeliveryAddress = {
   recipient: "",
@@ -29,6 +32,50 @@ const emptyDeliveryAddress: DeliveryAddress = {
   building: "",
   instructions: "",
 };
+
+function createMarketplaceProfile(
+  authUser: SupabaseAuthUser,
+  cachedUsers: User[],
+): User {
+  const email = authUser.email?.trim().toLowerCase();
+  if (!email) {
+    throw new Error("Your Supabase account does not have an email address.");
+  }
+
+  const cachedUser = cachedUsers.find(
+    (user) => user.email.toLowerCase() === email,
+  );
+  const metadataName = authUser.user_metadata.full_name;
+  const name =
+    (typeof metadataName === "string" && metadataName.trim()) ||
+    cachedUser?.name ||
+    email.split("@")[0];
+
+  return {
+    id: authUser.id,
+    name,
+    email,
+    role:
+      authUser.app_metadata.role === "marketing_admin"
+        ? "admin"
+        : cachedUser?.role ?? "student",
+    ...(cachedUser?.image ? { image: cachedUser.image } : {}),
+    ...(cachedUser?.deliveryAddress
+      ? { deliveryAddress: cachedUser.deliveryAddress }
+      : {}),
+  };
+}
+
+function saveMarketplaceProfile(user: User, cachedUsers: User[]) {
+  const nextUsers = [
+    ...cachedUsers.filter(
+      (savedUser) => savedUser.email.toLowerCase() !== user.email.toLowerCase(),
+    ),
+    user,
+  ];
+  writeUsers(nextUsers);
+  return nextUsers;
+}
 
 export function Storefront() {
   const [mode, setMode] = useState<AuthMode>("login");
@@ -51,17 +98,49 @@ export function Storefront() {
   );
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const session = restoreUserSession();
-      setUsers(session?.users ?? readUsers());
+    let isActive = true;
+    const restoreSession = async () => {
+      const cachedUsers = readUsers();
+      if (isActive) setUsers(cachedUsers);
+      window.localStorage.removeItem(sessionKey);
 
-      if (!session) return;
-      setCurrentUser(session.user);
-      setDeliveryAddress({
-        ...emptyDeliveryAddress,
-        ...session.user.deliveryAddress,
-      });
-    });
+      if (!getSupabaseConfig()) {
+        if (isActive) setStatus(authSetupMessage);
+        return;
+      }
+
+      try {
+        const { data, error } =
+          await createSupabaseBrowserClient().auth.getUser();
+        if (error?.name === "AuthSessionMissingError") return;
+        if (error) throw error;
+        if (!data.user || !isActive) return;
+
+        const user = createMarketplaceProfile(data.user, cachedUsers);
+        const nextUsers = saveMarketplaceProfile(user, cachedUsers);
+        setUsers(nextUsers);
+        setCurrentUser(user);
+        setDeliveryAddress({
+          ...emptyDeliveryAddress,
+          ...user.deliveryAddress,
+        });
+        window.localStorage.setItem(sessionKey, JSON.stringify(user));
+        setStatus(`Welcome back, ${user.name}!`);
+      } catch (restoreError) {
+        if (isActive) {
+          setStatus(
+            restoreError instanceof Error
+              ? restoreError.message
+              : "Your shared account could not be loaded.",
+          );
+        }
+      }
+    };
+
+    void restoreSession();
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -93,7 +172,7 @@ export function Storefront() {
     }
   }, [currentUser]);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const email = form.email.trim().toLowerCase();
 
@@ -107,51 +186,77 @@ export function Storefront() {
         setStatus("Please fill out the form and make sure passwords match.");
         return;
       }
+    }
 
-      const alreadyExists = users.some(
-        (user) => user.email.toLowerCase() === email,
-      );
-      if (alreadyExists) {
-        setStatus("That email is already registered.");
-        return;
-      }
-
-      const newUser: User = {
-        id: crypto.randomUUID(),
-        name: form.name.trim(),
-        email,
-        password: form.password,
-      };
-
-      const nextUsers = [...users, newUser];
-      const session = establishUserSession(newUser, nextUsers);
-      setUsers(session.users);
-      setCurrentUser(session.user);
-      setDeliveryAddress(emptyDeliveryAddress);
-      setDeliveryStatus("");
-      setForm({ name: "", email: "", password: "", confirmPassword: "" });
-      setStatus(`Welcome aboard, ${newUser.name}! Your profile is ready.`);
+    if (!getSupabaseConfig()) {
+      setStatus(authSetupMessage);
       return;
     }
 
-    const foundUser = users.find(
-      (user) =>
-        user.email.toLowerCase() === email && user.password === form.password,
-    );
+    try {
+      const supabase = createSupabaseBrowserClient();
+      if (mode === "register") {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password: form.password,
+          options: {
+            data: { full_name: form.name.trim() },
+            emailRedirectTo: `${window.location.origin}/`,
+          },
+        });
+        if (error) throw error;
+        if (!data.user) {
+          throw new Error("Account creation did not return a user. Please try again.");
+        }
+        if (!data.session) {
+          setForm({ name: "", email: "", password: "", confirmPassword: "" });
+          setStatus(
+            "Check your email to confirm registration, then sign in here. If you already have a Supabase account, switch to Sign in instead. Shared accounts work on Vercel and localhost.",
+          );
+          return;
+        }
 
-    if (foundUser) {
-      const session = establishUserSession(foundUser, users);
-      setUsers(session.users);
-      setCurrentUser(session.user);
+        const user = createMarketplaceProfile(data.user, users);
+        const nextUsers = saveMarketplaceProfile(user, users);
+        setUsers(nextUsers);
+        setCurrentUser(user);
+        setDeliveryAddress(emptyDeliveryAddress);
+        setDeliveryStatus("");
+        setForm({ name: "", email: "", password: "", confirmPassword: "" });
+        setStatus(`Welcome aboard, ${user.name}! Your profile is ready.`);
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: form.password,
+      });
+      if (error) {
+        throw new Error(
+          "Email or password is incorrect. If this account was created only on localhost, register it once with the same email on Supabase first. Check that the email ends in gmail.com if that is the address you intended.",
+        );
+      }
+      if (!data.user) {
+        throw new Error("Sign-in did not return an account. Please try again.");
+      }
+
+      const user = createMarketplaceProfile(data.user, users);
+      const nextUsers = saveMarketplaceProfile(user, users);
+      setUsers(nextUsers);
+      setCurrentUser(user);
       setDeliveryAddress({
         ...emptyDeliveryAddress,
-        ...session.user.deliveryAddress,
+        ...user.deliveryAddress,
       });
       setDeliveryStatus("");
       setForm({ name: "", email: "", password: "", confirmPassword: "" });
-      setStatus(`Welcome back, ${foundUser.name}!`);
-    } else {
-      setStatus("Incorrect email or password. Try registering first.");
+      setStatus(`Welcome back, ${user.name}!`);
+    } catch (authError) {
+      setStatus(
+        authError instanceof Error
+          ? authError.message
+          : "Sign-in failed. Please try again.",
+      );
     }
   };
 
@@ -167,19 +272,31 @@ export function Storefront() {
     reader.onload = () => {
       const imageData = reader.result as string;
       const updatedUser = { ...currentUser, image: imageData };
-      const nextUsers = users.map((user) =>
-        user.id === currentUser.id ? updatedUser : user,
+      const nextUsers = saveMarketplaceProfile(
+        updatedUser,
+        users,
       );
 
       setUsers(nextUsers);
-      writeUsers(nextUsers);
       setCurrentUser(updatedUser);
       setStatus("Profile picture updated successfully.");
     };
     reader.readAsDataURL(file);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const { error } = await createSupabaseBrowserClient().auth.signOut();
+      if (error) throw error;
+    } catch (logoutError) {
+      setStatus(
+        logoutError instanceof Error
+          ? logoutError.message
+          : "Could not sign out. Please try again.",
+      );
+      return;
+    }
+
     setCurrentUser(null);
     setDeliveryAddress(emptyDeliveryAddress);
     setDeliveryStatus("");
@@ -207,11 +324,8 @@ export function Storefront() {
     }
 
     const updatedUser = { ...currentUser, deliveryAddress };
-    const nextUsers = users.map((user) =>
-      user.id === currentUser.id ? updatedUser : user,
-    );
+    const nextUsers = saveMarketplaceProfile(updatedUser, users);
     setUsers(nextUsers);
-    writeUsers(nextUsers);
     setCurrentUser(updatedUser);
     setDeliveryStatus("Delivery destination saved to your account.");
   };

@@ -24,6 +24,33 @@ type SavedOrderReceipt = {
   purchasedAt?: unknown;
 };
 
+const orderReferenceAlphabet = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+const orderReferenceLength = 6;
+const maxOrderReferenceAttempts = 5;
+
+function createOrderReference(): string {
+  const randomBytes = crypto.getRandomValues(
+    new Uint8Array(orderReferenceLength),
+  );
+  return Array.from(
+    randomBytes,
+    (byte) => orderReferenceAlphabet[byte % orderReferenceAlphabet.length],
+  ).join("");
+}
+
+function isOrderReferenceCollision(error: {
+  code: string;
+  message: string;
+  details: string | null;
+}): boolean {
+  return (
+    error.code === "23505" &&
+    /orders_order_reference_key|order_reference/i.test(
+      `${error.message} ${error.details ?? ""}`,
+    )
+  );
+}
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -152,22 +179,46 @@ export async function POST(request: Request) {
       { status: 401 },
     );
   }
-  const orderReference = crypto.randomUUID().toUpperCase();
-  const { data, error } = await client.rpc("place_order", {
-    p_product_id: order.productId.trim(),
-    p_quantity: order.quantity,
-    p_delivery_address: {
-      recipient: order.deliveryAddress.recipient.trim(),
-      classNumber: order.deliveryAddress.classNumber.trim(),
-      roomNumber: order.deliveryAddress.roomNumber.trim(),
-      building: order.deliveryAddress.building.trim(),
-      instructions: order.deliveryAddress.instructions.trim(),
-    },
-    p_order_reference: orderReference,
-    p_buyer_id: auth.user.id,
-  });
+  let data: unknown = null;
+  let error: {
+    code: string;
+    message: string;
+    details: string | null;
+  } | null = null;
+  let attempts = 0;
+
+  while (attempts < maxOrderReferenceAttempts) {
+    attempts += 1;
+    const orderReference = createOrderReference();
+    const result = await client.rpc("place_order", {
+      p_product_id: order.productId.trim(),
+      p_quantity: order.quantity,
+      p_delivery_address: {
+        recipient: order.deliveryAddress.recipient.trim(),
+        classNumber: order.deliveryAddress.classNumber.trim(),
+        roomNumber: order.deliveryAddress.roomNumber.trim(),
+        building: order.deliveryAddress.building.trim(),
+        instructions: order.deliveryAddress.instructions.trim(),
+      },
+      p_order_reference: orderReference,
+      p_buyer_id: auth.user.id,
+    });
+    data = result.data;
+    error = result.error;
+
+    if (!error || !isOrderReferenceCollision(error)) break;
+  }
 
   if (error) {
+    if (isOrderReferenceCollision(error)) {
+      console.error(
+        "Could not generate a unique order reference after several attempts.",
+      );
+      return Response.json(
+        { message: "A unique order code could not be generated. Please retry." },
+        { status: 503 },
+      );
+    }
     if (error.code === "PGRST202" || error.code === "42883") {
       return Response.json(
         {

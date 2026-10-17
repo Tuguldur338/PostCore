@@ -30,15 +30,69 @@ function isAuthRateLimitError(error: unknown): boolean {
 
   const status = "status" in error ? error.status : undefined;
   const message = "message" in error ? error.message : undefined;
+  const code =
+    "code" in error ? String(error.code).toLowerCase() : "";
   return (
     status === 429 ||
+    code.includes("rate_limit") ||
     (typeof message === "string" &&
       /rate.?limit|too many requests/i.test(message))
   );
 }
 
+function getAuthErrorMessage(error: unknown, operation: "register" | "sign-in") {
+  if (isAuthRateLimitError(error)) return authRateLimitMessage;
+
+  const message =
+    error instanceof Error ? error.message : "";
+  const normalizedMessage = message.toLowerCase();
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String(error.code).toLowerCase()
+      : "";
+
+  if (
+    code.includes("user_already_exists") ||
+    code.includes("email_exists") ||
+    normalizedMessage.includes("already registered")
+  ) {
+    return "This email already has an account. Switch to Sign in instead.";
+  }
+
+  if (normalizedMessage.includes("database error saving new user")) {
+    return "Supabase rejected account creation while saving its marketplace profile. Run the latest supabase/schema.sql in this app's Supabase project, then try again.";
+  }
+
+  if (
+    normalizedMessage.includes("email address not authorized") ||
+    normalizedMessage.includes("email not authorized")
+  ) {
+    return "Supabase's built-in email service only sends to addresses belonging to your Supabase organization. To let students register with other addresses, configure custom SMTP in Supabase Dashboard > Authentication > SMTP Settings.";
+  }
+
+  if (
+    normalizedMessage.includes("password") &&
+    (normalizedMessage.includes("weak") ||
+      normalizedMessage.includes("short") ||
+      normalizedMessage.includes("at least"))
+  ) {
+    return `Supabase rejected the password: ${message}`;
+  }
+
+  if (
+    normalizedMessage.includes("signup is disabled") ||
+    normalizedMessage.includes("signups not allowed")
+  ) {
+    return "New registrations are disabled in this Supabase project. Enable public sign-ups in Supabase Authentication settings.";
+  }
+
+  return message || (operation === "register"
+    ? "Registration failed. Please try again."
+    : "Sign-in failed. Please try again.");
+}
+
 const authRateLimitMessage =
-  "Supabase is temporarily limiting confirmation emails. The default per-email wait is 60 seconds, and Supabase's built-in email service is limited to 2 emails per hour. You can lower the wait in your project's Authentication > Rate Limits settings; higher email volume requires custom SMTP.";
+  "Supabase's built-in email service has a project-wide limit of 2 emails per hour and only sends to addresses belonging to your Supabase organization. Waiting 60 seconds may not be enough. Configure custom SMTP in Supabase Dashboard > Authentication > SMTP Settings to send confirmations to student addresses; after SMTP is enabled, adjust Authentication > Rate Limits if needed.";
 
 type MarketplaceProfileResponse = {
   message?: string;
@@ -292,11 +346,10 @@ export function Storefront() {
       setStatus(`Welcome back, ${user.name}!`);
     } catch (authError) {
       setStatus(
-        isAuthRateLimitError(authError)
-          ? authRateLimitMessage
-          : authError instanceof Error
-          ? authError.message
-          : "Sign-in failed. Please try again.",
+        getAuthErrorMessage(
+          authError,
+          mode === "register" ? "register" : "sign-in",
+        ),
       );
     } finally {
       setIsSubmittingAuth(false);
@@ -322,13 +375,7 @@ export function Storefront() {
         "If this address has a pending registration, a confirmation email has been sent. Check your inbox and spam folder.",
       );
     } catch (resendError) {
-      setStatus(
-        isAuthRateLimitError(resendError)
-          ? authRateLimitMessage
-          : resendError instanceof Error
-          ? resendError.message
-          : "The confirmation email could not be resent.",
-      );
+      setStatus(getAuthErrorMessage(resendError, "register"));
     } finally {
       setIsSubmittingAuth(false);
     }

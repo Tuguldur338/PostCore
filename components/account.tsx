@@ -6,8 +6,11 @@ type AuthPanelProps = {
   mode: AuthMode;
   form: AuthForm;
   status: string;
+  isSubmitting: boolean;
+  canResendConfirmation: boolean;
   onModeChange: (mode: AuthMode) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onResendConfirmation: () => void;
   onInputChange: (field: keyof AuthForm, value: string) => void;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onLogout: () => void;
@@ -34,8 +37,11 @@ export function Account({
   mode,
   form,
   status,
+  isSubmitting,
+  canResendConfirmation,
   onModeChange,
   onSubmit,
+  onResendConfirmation,
   onInputChange,
   onImageChange,
   onLogout,
@@ -240,6 +246,8 @@ export function Account({
             <input
               className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
               type="text"
+              autoComplete="name"
+              required
               value={form.name}
               onChange={(event) => onInputChange("name", event.target.value)}
               placeholder="Ari Johnson"
@@ -254,6 +262,8 @@ export function Account({
           <input
             className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
             type="email"
+            autoComplete="email"
+            required
             value={form.email}
             onChange={(event) => onInputChange("email", event.target.value)}
             placeholder="you@example.com"
@@ -267,6 +277,10 @@ export function Account({
           <input
             className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
             type="password"
+            autoComplete={
+              mode === "register" ? "new-password" : "current-password"
+            }
+            required
             value={form.password}
             onChange={(event) => onInputChange("password", event.target.value)}
             placeholder="••••••••"
@@ -281,6 +295,8 @@ export function Account({
             <input
               className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
               type="password"
+              autoComplete="new-password"
+              required
               value={form.confirmPassword}
               onChange={(event) =>
                 onInputChange("confirmPassword", event.target.value)
@@ -292,11 +308,27 @@ export function Account({
 
         <button
           type="submit"
+          disabled={isSubmitting}
           className="smooth-transition w-full rounded-2xl bg-sky-600 px-4 py-3 font-semibold text-white transition-colors duration-200 ease-out hover:bg-sky-700"
         >
-          {mode === "register" ? "Create account" : "Sign in"}
+          {isSubmitting
+            ? "Please wait..."
+            : mode === "register"
+              ? "Create account"
+              : "Sign in"}
         </button>
       </form>
+
+      {mode === "register" && canResendConfirmation ? (
+        <button
+          type="button"
+          disabled={isSubmitting || !form.email.trim()}
+          onClick={onResendConfirmation}
+          className="mt-3 w-full rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800 transition-colors hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Resend confirmation email
+        </button>
+      ) : null}
 
       <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
         {status}

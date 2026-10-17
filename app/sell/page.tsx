@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { parseMntAmount } from "@/components/currency";
 import { isValidClassNumber } from "@/components/delivery-validation";
 import { readProducts } from "@/components/product-store";
+import { QuantityInput } from "@/components/quantity-input";
 import type { Product } from "@/components/types";
 
 type ProductFormState = {
@@ -105,6 +112,8 @@ export default function SellPage() {
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [isCompressingImage, setIsCompressingImage] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isSubmitting = useRef(false);
+  const pendingProductId = useRef<string | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -178,10 +187,12 @@ export default function SellPage() {
   }, []);
 
   const handleInputChange = (field: keyof ProductFormState, value: string) => {
+    if (!isSubmitting.current) pendingProductId.current = null;
     setProductForm((previous) => ({ ...previous, [field]: value }));
   };
 
   const handleImageSelect = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!isSubmitting.current) pendingProductId.current = null;
     const file = event.target.files?.[0];
     if (!file) {
       setProductForm((previous) => ({ ...previous, image: "" }));
@@ -204,6 +215,7 @@ export default function SellPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isSubmitting.current) return;
 
     if (!isAdmin) {
       setStatus("Sign in with the marketing admin account before adding listings.");
@@ -239,10 +251,14 @@ export default function SellPage() {
       return;
     }
 
+    isSubmitting.current = true;
     setIsSaving(true);
+    if (pendingProductId.current === null) {
+      pendingProductId.current = crypto.randomUUID();
+    }
 
     const newProduct: Product = {
-      id: crypto.randomUUID(),
+      id: pendingProductId.current,
       name: productForm.name.trim(),
       price: String(priceAmount),
       badge: "New",
@@ -281,6 +297,7 @@ export default function SellPage() {
       if (!response.ok) {
         throw new Error(result.message ?? "The listing could not be saved.");
       }
+      pendingProductId.current = null;
       setProductForm(emptyProductForm);
       setStatus(`${newProduct.name} was added to your sell list.`);
     } catch (error) {
@@ -290,6 +307,7 @@ export default function SellPage() {
           : "The listing could not be saved. Try a smaller photo.",
       );
     } finally {
+      isSubmitting.current = false;
       setIsSaving(false);
     }
   };
@@ -324,7 +342,8 @@ export default function SellPage() {
               </Link>
             </div>
           ) : (
-            <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit}>
+              <fieldset disabled={isSaving} className="mt-6 space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <input
                   value={productForm.name}
@@ -346,23 +365,22 @@ export default function SellPage() {
                   className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
                   placeholder="Price in MNT (₮)"
                 />
-                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm">
-                  <span className="whitespace-nowrap font-semibold text-slate-700">
+                <div className="grid gap-2">
+                  <label
+                    htmlFor="listing-quantity"
+                    className="text-sm font-semibold text-slate-700"
+                  >
                     Quantity
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    inputMode="numeric"
+                  </label>
+                  <QuantityInput
+                    id="listing-quantity"
+                    min={1}
                     value={productForm.quantity}
-                    onChange={(event) =>
-                      handleInputChange("quantity", event.target.value)
-                    }
-                    className="w-full bg-transparent py-3 outline-none"
-                    placeholder="How many to sell"
+                    onChange={(value) => handleInputChange("quantity", value)}
+                    disabled={isSaving}
+                    ariaLabel="Listing quantity"
                   />
-                </label>
+                </div>
               </div>
 
               <textarea
@@ -460,6 +478,7 @@ export default function SellPage() {
                       : "Add product"}
                 </button>
               </div>
+              </fieldset>
             </form>
           )}
         </section>

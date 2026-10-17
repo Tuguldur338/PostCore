@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckoutDialog } from "./checkout";
 import { formatMntPrice, parseMntAmount } from "./currency";
+import { QuantityInput } from "./quantity-input";
 import type { Product } from "./types";
 
 const favoritesStorageKey = "postcore-favorites";
@@ -18,16 +19,12 @@ function QuantityEditor({
   const [value, setValue] = useState(product.quantity?.toString() ?? "");
 
   return (
-    <label className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-700">
-      Qty
-      <input
-        type="number"
-        min="0"
-        step="1"
-        inputMode="numeric"
+    <div className="grid w-40 gap-1">
+      <span className="text-xs font-semibold text-slate-600">Inventory</span>
+      <QuantityInput
+        min={0}
         value={value}
-        placeholder="—"
-        onChange={(event) => setValue(event.target.value)}
+        onChange={setValue}
         onBlur={() => {
           const quantity = Number(value);
           if (value !== "" && Number.isSafeInteger(quantity) && quantity >= 0) {
@@ -36,10 +33,10 @@ function QuantityEditor({
             setValue(product.quantity?.toString() ?? "");
           }
         }}
-        className="w-16 bg-transparent py-1 outline-none"
-        aria-label={`Quantity of ${product.name}`}
+        onStep={onSave}
+        ariaLabel={`Quantity of ${product.name}`}
       />
-    </label>
+    </div>
   );
 }
 
@@ -111,7 +108,7 @@ type CatalogProps = {
   canManageListings?: boolean;
   onAvailabilityChange?: (productId: string, outOfStock: boolean) => void;
   onQuantityChange?: (productId: string, quantity: number) => void;
-  onRemoveProduct?: (productId: string) => void;
+  onProductRemoved?: (productId: string) => void;
   onPurchaseSuccess?: (productId: string, quantity: number) => void;
 };
 
@@ -123,7 +120,7 @@ export function Catalog({
   canManageListings = false,
   onAvailabilityChange,
   onQuantityChange,
-  onRemoveProduct,
+  onProductRemoved,
   onPurchaseSuccess,
 }: CatalogProps) {
   const [query, setQuery] = useState("");
@@ -133,6 +130,10 @@ export function Catalog({
   const [showSavedOnly, setShowSavedOnly] = useState(initialView === "saved");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [checkoutProduct, setCheckoutProduct] = useState<Product | null>(null);
+  const [isMarketplaceAdmin, setIsMarketplaceAdmin] = useState(false);
+  const [removingProductId, setRemovingProductId] = useState("");
+  const [managementError, setManagementError] = useState("");
+  const [removedProductIds, setRemovedProductIds] = useState<string[]>([]);
 
   useEffect(() => {
     const savedFavorites = window.localStorage.getItem(favoritesStorageKey);
@@ -147,14 +148,90 @@ export function Catalog({
     }
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    const verifyMarketplaceAdmin = async () => {
+      try {
+        const response = await fetch("/api/admin/products", {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          if (response.status !== 401 && response.status !== 403) {
+            const result = (await response.json()) as { message?: string };
+            throw new Error(
+              result.message ?? "Marketplace admin access could not be checked.",
+            );
+          }
+          return;
+        }
+
+        const result = (await response.json()) as { authorized?: boolean };
+        if (active) setIsMarketplaceAdmin(result.authorized === true);
+      } catch (error) {
+        if (active) {
+          setManagementError(
+            error instanceof Error
+              ? error.message
+              : "Marketplace admin access could not be checked.",
+          );
+        }
+      }
+    };
+
+    void verifyMarketplaceAdmin();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const removeProduct = async (product: Product) => {
+    if (!window.confirm(`Remove ${product.name} from the catalog?`)) return;
+
+    setManagementError("");
+    setRemovingProductId(product.id);
+    try {
+      const response = await fetch("/api/admin/products", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: product.id }),
+      });
+      const result = (await response.json()) as { message?: string };
+      if (!response.ok) {
+        throw new Error(result.message ?? "The product could not be removed.");
+      }
+
+      setRemovedProductIds((current) => [...current, product.id]);
+      onProductRemoved?.(product.id);
+    } catch (error) {
+      setManagementError(
+        error instanceof Error
+          ? error.message
+          : "The product could not be removed.",
+      );
+    } finally {
+      setRemovingProductId("");
+    }
+  };
+
+  const canRemoveProducts = canManageListings || isMarketplaceAdmin;
+  const catalogProducts = useMemo(
+    () =>
+      products.filter(
+        (product) =>
+          !removedProductIds.includes(product.id) &&
+          (canRemoveProducts || !isUnavailable(product)),
+      ),
+    [canRemoveProducts, products, removedProductIds],
+  );
   const categories = useMemo(
-    () => ["All", ...new Set(products.map((product) => product.category))],
-    [products],
+    () => ["All", ...new Set(catalogProducts.map((product) => product.category))],
+    [catalogProducts],
   );
 
   const visibleProducts = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const filtered = products.filter((product) => {
+    const filtered = catalogProducts.filter((product) => {
       const matchesCategory =
         category === "All" || product.category === category;
       const matchesSavedView = !showSavedOnly || favorites.includes(product.id);
@@ -174,7 +251,7 @@ export function Catalog({
       }
       return 0;
     });
-  }, [category, favorites, products, query, showSavedOnly, sort]);
+  }, [category, catalogProducts, favorites, query, showSavedOnly, sort]);
 
   const toggleFavorite = (productId: string) => {
     const nextFavorites = favorites.includes(productId)
@@ -187,7 +264,7 @@ export function Catalog({
     );
   };
 
-  const savedProductsCount = products.filter((product) =>
+  const savedProductsCount = catalogProducts.filter((product) =>
     favorites.includes(product.id),
   ).length;
 
@@ -221,7 +298,7 @@ export function Catalog({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-            {visibleProducts.length} of {products.length} items
+            {visibleProducts.length} of {catalogProducts.length} items
           </span>
           {showViewSwitch ? (
             <div
@@ -271,6 +348,14 @@ export function Catalog({
           onChange={setSort}
         />
       </div>
+      {managementError ? (
+        <p
+          role="alert"
+          className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
+        >
+          {managementError}
+        </p>
+      ) : null}
 
       {!showProductCards ? (
         <div className="mt-6 flex min-h-56 items-center justify-center px-6 text-center">
@@ -281,6 +366,10 @@ export function Catalog({
       ) : products.length === 0 ? (
         <div className="mt-6 rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-600">
           No items yet. Add one above to start building your storefront.
+        </div>
+      ) : catalogProducts.length === 0 ? (
+        <div className="mt-6 rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-600">
+          Nothing is currently in stock. Check back later for more items.
         </div>
       ) : visibleProducts.length === 0 ? (
         <div className="mt-6 rounded-[1.5rem] border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-600">
@@ -385,17 +474,14 @@ export function Catalog({
                   </button>
                 </div>
                 {canManageListings ? (
-                  <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
-                    <label className="flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-semibold text-slate-700">
-                      Qty
-                      <QuantityEditor
-                        key={`${product.id}:${product.quantity ?? "unlimited"}`}
-                        product={product}
-                        onSave={(quantity) =>
-                          onQuantityChange?.(product.id, quantity)
-                        }
-                      />
-                    </label>
+                  <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-slate-200 pt-3">
+                    <QuantityEditor
+                      key={`${product.id}:${product.quantity ?? "unlimited"}`}
+                      product={product}
+                      onSave={(quantity) =>
+                        onQuantityChange?.(product.id, quantity)
+                      }
+                    />
                     <button
                       type="button"
                       onClick={() =>
@@ -407,12 +493,19 @@ export function Catalog({
                         ? "Mark in stock"
                         : "Mark out of stock"}
                     </button>
+                  </div>
+                ) : null}
+                {canRemoveProducts ? (
+                  <div className="mt-4 border-t border-slate-200 pt-3">
                     <button
                       type="button"
-                      onClick={() => onRemoveProduct?.(product.id)}
-                      className="rounded-full border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50"
+                      disabled={removingProductId === product.id}
+                      onClick={() => void removeProduct(product)}
+                      className="rounded-full border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700 transition-colors hover:bg-rose-50 disabled:cursor-wait disabled:opacity-60"
                     >
-                      Remove listing
+                      {removingProductId === product.id
+                        ? "Removing..."
+                        : "Remove listing"}
                     </button>
                   </div>
                 ) : null}

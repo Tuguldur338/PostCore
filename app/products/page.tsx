@@ -81,38 +81,6 @@ export default function ProductsPage() {
   const handleQuantityChange = (productId: string, quantity: number) =>
     void updateInventory({ id: productId, quantity });
 
-  const handleRemoveProduct = (productId: string) => {
-    const product = products.find((item) => item.id === productId);
-    if (
-      !product ||
-      !window.confirm(`Remove ${product.name} from the catalog?`)
-    ) {
-      return;
-    }
-
-    void (async () => {
-      try {
-        const response = await fetch("/api/admin/products", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: productId }),
-        });
-        const result = (await response.json()) as { message?: string };
-        if (!response.ok) {
-          throw new Error(result.message ?? "The product could not be removed.");
-        }
-        await reloadProducts();
-        setStatus("Product removed.");
-      } catch (removeError) {
-        setStatus(
-          removeError instanceof Error
-            ? removeError.message
-            : "The product could not be removed.",
-        );
-      }
-    })();
-  };
-
   return (
     <div className="site-shell min-h-screen p-4 text-slate-800 sm:p-6 lg:p-8">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -151,7 +119,16 @@ export default function ProductsPage() {
           canManageListings={canManageListings}
           onAvailabilityChange={handleAvailabilityChange}
           onQuantityChange={handleQuantityChange}
-          onRemoveProduct={handleRemoveProduct}
+          onProductRemoved={() => {
+            void reloadProducts().catch((loadError: unknown) => {
+              setStatus(
+                loadError instanceof Error
+                  ? loadError.message
+                  : "The catalog could not be refreshed.",
+              );
+            });
+            setStatus("Product removed.");
+          }}
           onPurchaseSuccess={() => {
             void reloadProducts().catch((loadError: unknown) => {
               setStatus(

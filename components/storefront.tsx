@@ -25,6 +25,21 @@ const sessionKey = "postcore-current-user";
 const authSetupMessage =
   "Shared sign-in is not configured on this deployment. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel Project Settings, then redeploy.";
 
+function isAuthRateLimitError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const status = "status" in error ? error.status : undefined;
+  const message = "message" in error ? error.message : undefined;
+  return (
+    status === 429 ||
+    (typeof message === "string" &&
+      /rate.?limit|too many requests/i.test(message))
+  );
+}
+
+const authRateLimitMessage =
+  "Supabase is temporarily limiting confirmation emails. The default per-email wait is 60 seconds, and Supabase's built-in email service is limited to 2 emails per hour. You can lower the wait in your project's Authentication > Rate Limits settings; higher email volume requires custom SMTP.";
+
 type MarketplaceProfileResponse = {
   message?: string;
   profile?: {
@@ -91,6 +106,8 @@ function saveMarketplaceProfile(user: User, cachedUsers: User[]) {
 
 export function Storefront() {
   const [mode, setMode] = useState<AuthMode>("login");
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const [form, setForm] = useState<AuthForm>({
     name: "",
     email: "",
@@ -187,6 +204,7 @@ export function Storefront() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const email = form.email.trim().toLowerCase();
+    setNeedsEmailConfirmation(false);
 
     if (mode === "register") {
       if (
@@ -205,6 +223,7 @@ export function Storefront() {
       return;
     }
 
+    setIsSubmittingAuth(true);
     try {
       const supabase = createSupabaseBrowserClient();
       if (mode === "register") {
@@ -221,9 +240,17 @@ export function Storefront() {
           throw new Error("Account creation did not return a user. Please try again.");
         }
         if (!data.session) {
-          setForm({ name: "", email: "", password: "", confirmPassword: "" });
+          setNeedsEmailConfirmation(true);
+          setForm((previous) => ({
+            ...previous,
+            email,
+            password: "",
+            confirmPassword: "",
+          }));
           setStatus(
-            "Check your email to confirm registration, then sign in here. If you already have a Supabase account, switch to Sign in instead. Shared accounts work on Vercel and localhost.",
+            data.user.identities?.length === 0
+              ? "An account with this email may already exist. If you just registered, resend its confirmation email; otherwise switch to Sign in."
+              : "Registration started. Check your inbox and spam folder for the confirmation email, then sign in. If it does not arrive, you can resend it below.",
           );
           return;
         }
@@ -265,10 +292,45 @@ export function Storefront() {
       setStatus(`Welcome back, ${user.name}!`);
     } catch (authError) {
       setStatus(
-        authError instanceof Error
+        isAuthRateLimitError(authError)
+          ? authRateLimitMessage
+          : authError instanceof Error
           ? authError.message
           : "Sign-in failed. Please try again.",
       );
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const resendConfirmation = async () => {
+    const email = form.email.trim().toLowerCase();
+    if (!email || !getSupabaseConfig()) {
+      setStatus("Enter your registration email and try again.");
+      return;
+    }
+
+    setIsSubmittingAuth(true);
+    try {
+      const { error } = await createSupabaseBrowserClient().auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/` },
+      });
+      if (error) throw error;
+      setStatus(
+        "If this address has a pending registration, a confirmation email has been sent. Check your inbox and spam folder.",
+      );
+    } catch (resendError) {
+      setStatus(
+        isAuthRateLimitError(resendError)
+          ? authRateLimitMessage
+          : resendError instanceof Error
+          ? resendError.message
+          : "The confirmation email could not be resent.",
+      );
+    } finally {
+      setIsSubmittingAuth(false);
     }
   };
 
@@ -385,8 +447,11 @@ export function Storefront() {
             mode={mode}
             form={form}
             status={status}
+            isSubmitting={isSubmittingAuth}
+            canResendConfirmation={needsEmailConfirmation}
             onModeChange={setMode}
             onSubmit={handleSubmit}
+            onResendConfirmation={() => void resendConfirmation()}
             onInputChange={handleInputChange}
             onImageChange={handleImageChange}
             onLogout={handleLogout}

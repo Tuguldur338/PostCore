@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatMntPrice, parseMntAmount } from "./currency";
 import { getDeliveryAddressError } from "./delivery-validation";
+import { QuantityInput } from "./quantity-input";
 import type { DeliveryAddress, Product } from "./types";
 
 const sessionStorageKey = "postcore-current-user";
@@ -189,21 +190,22 @@ export function CheckoutDialog({
             </div>
 
             <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
-                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-3 text-sm">
-                  <span className="font-semibold text-slate-700">Quantity</span>
-                  <input
-                    type="number"
-                    min="1"
+                <div className="grid gap-2">
+                  <label
+                    htmlFor="purchase-quantity"
+                    className="text-sm font-semibold text-slate-700"
+                  >
+                    Quantity
+                  </label>
+                  <QuantityInput
+                    id="purchase-quantity"
+                    min={1}
                     max={product.quantity}
-                    step="1"
-                    inputMode="numeric"
-                    required
                     value={quantity}
-                    onChange={(event) => setQuantity(event.target.value)}
-                    className="w-20 rounded-lg border border-slate-200 px-2 py-1 text-right outline-none focus:border-orange-400"
-                    aria-label="Purchase quantity"
+                    onChange={setQuantity}
+                    ariaLabel="Purchase quantity"
                   />
-                </label>
+                </div>
                 <input
                   required
                   autoComplete="name"

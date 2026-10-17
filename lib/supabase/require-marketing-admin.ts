@@ -12,8 +12,11 @@ export async function requireMarketingAdmin() {
     };
   }
 
-  const adminEmail = process.env.MARKETING_ADMIN_EMAIL?.trim().toLowerCase();
-  if (!adminEmail) {
+  const adminEmails = (process.env.MARKETING_ADMIN_EMAIL ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  if (adminEmails.length === 0) {
     return {
       client: null,
       response: Response.json(
@@ -36,7 +39,8 @@ export async function requireMarketingAdmin() {
   }
 
   if (
-    data.user.email?.trim().toLowerCase() !== adminEmail ||
+    !data.user.email ||
+    !adminEmails.includes(data.user.email.trim().toLowerCase()) ||
     data.user.app_metadata.role !== "marketing_admin"
   ) {
     return {

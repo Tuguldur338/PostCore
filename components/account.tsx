@@ -141,7 +141,7 @@ export function Account({
                 onDeliveryAddressChange("building", event.target.value)
               }
               className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="1-4"
+              placeholder="Enter floor number 1-4"
               aria-label="Floor (required if room number is empty)"
               pattern="[1-4]"
               title="Enter a floor number from 1 to 4."

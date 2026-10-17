@@ -48,20 +48,25 @@ Purchase requests are stored in Supabase instead of being sent by email. To set 
    update auth.users
    set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb)
      || '{"role":"marketing_admin"}'::jsonb
-   where email = 'tselmeg.n2016@orkhonschool.edu.mn';
+   where email in (
+     'admin1@example.com',
+     'admin2@example.com'
+   );
    ```
 
-   Confirm that exactly one user was updated. The app metadata is managed by Supabase and cannot be changed by the user through normal sign-up or profile updates. If that account was already signed in, sign out and sign in again so the session receives the updated role.
+   Replace the example addresses with the admin accounts you created, and remove any unused rows. Confirm that the expected number of users was updated. The app metadata is managed by Supabase and cannot be changed by the user through normal sign-up or profile updates. If an account was already signed in, sign out and sign in again so the session receives the updated role.
 3. Add these variables to `.env.local` and restart the development server:
 
    ```env
    NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
-   MARKETING_ADMIN_EMAIL=tselmeg.n2016@orkhonschool.edu.mn
+   MARKETING_ADMIN_EMAIL=admin1@example.com,admin2@example.com
    ```
 
+   `MARKETING_ADMIN_EMAIL` accepts one email or a comma-separated list. Every listed address must also belong to a Supabase Auth user with the trusted `marketing_admin` app-metadata role.
+
    Get the project URL and publishable key from **Supabase → Project Settings → API Keys**. The legacy anon key is also supported as `NEXT_PUBLIC_SUPABASE_ANON_KEY`. The Supabase URL and publishable/anon key are intended for browser use; the database's row-level security policies protect order data. Do not add a Supabase service-role key to the application. You can copy `.env.example` as a template, replacing its placeholders with the actual project values.
-4. Open `/orders` and sign in with the configured admin account to review new requests, mark them completed, or delete them. The same admin session is required to add listings at `/sell` and manage inventory at `/products`.
+4. Open `/orders` and sign in with any configured admin account to review new requests, mark them completed, or delete them. The same admin session is required to add listings at `/sell` and manage inventory at `/products`.
 5. For a deployed site, add the same variables to the hosting provider's environment-variable settings and redeploy. `.env.local` is only used for local development.
 
 The website does not process payments. Orders remain in the Supabase database until deleted. A finite product quantity decreases only when an order is successfully saved; orders that cannot be fulfilled because stock has changed are rejected without reducing inventory. The two built-in sample products have unlimited stock.

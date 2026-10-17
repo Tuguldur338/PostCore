@@ -61,10 +61,20 @@ export function Account({
               )}
             </div>
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-600">
+              <p
+                className={`inline-flex rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${
+                  currentUser.role === "admin"
+                    ? "border-amber-700 bg-amber-700 text-white"
+                    : currentUser.role === "marketplace_admin"
+                      ? "border-indigo-700 bg-indigo-700 text-white"
+                      : "border-slate-300 bg-slate-200 text-slate-800"
+                }`}
+              >
                 {currentUser.role === "admin"
-                  ? "Marketplace admin"
-                  : "Student account"}
+                  ? "ADMIN"
+                  : currentUser.role === "marketplace_admin"
+                    ? "Marketplace Admin"
+                    : "Student"}
               </p>
               <h2 className="text-2xl font-semibold text-slate-900">
                 {currentUser.name}

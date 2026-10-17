@@ -2,7 +2,8 @@ export type User = {
   id: string;
   name: string;
   email: string;
-  role: "admin" | "marketplace_admin" | "student";
+  password: string;
+  role?: "admin" | "student";
   image?: string;
   deliveryAddress?: DeliveryAddress;
 };

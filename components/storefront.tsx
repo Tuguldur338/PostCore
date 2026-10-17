@@ -2,12 +2,16 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { Account } from "@/components/account";
-import { readUsers, writeUsers } from "@/components/auth-store";
+import {
+  establishUserSession,
+  readUsers,
+  restoreUserSession,
+  writeUsers,
+} from "@/components/auth-store";
 import { getDeliveryAddressError } from "@/components/delivery-validation";
 import { Catalog } from "@/components/catalog";
 import { Intro } from "@/components/intro";
 import { fetchSharedProducts } from "@/components/product-store";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import type {
   AuthForm,
   AuthMode,
@@ -16,58 +20,7 @@ import type {
   User,
 } from "@/components/types";
 
-type MarketplaceProfile = {
-  user_id: string;
-  email: string;
-  display_name: string;
-  role: User["role"];
-};
-
-type MarketplaceProfileResponse = {
-  message?: string;
-  profile?: MarketplaceProfile;
-};
-
-async function loadMarketplaceProfile(authUser: {
-  id: string;
-  email?: string;
-  user_metadata: Record<string, unknown>;
-}) {
-  const response = await fetch("/api/profile", { cache: "no-store" });
-  const result = (await response.json()) as MarketplaceProfileResponse;
-  if (!response.ok || !result.profile) {
-    throw new Error(result.message ?? "Your marketplace profile could not be loaded.");
-  }
-
-  const cachedUsers = readUsers();
-  const cachedUser = cachedUsers.find(
-    (user) => user.email.toLowerCase() === result.profile?.email.toLowerCase(),
-  );
-  const metadataName = authUser.user_metadata.full_name;
-  const name =
-    result.profile.display_name.trim() ||
-    (typeof metadataName === "string" ? metadataName.trim() : "") ||
-    cachedUser?.name ||
-    result.profile.email.split("@")[0];
-  const user: User = {
-    id: result.profile.user_id,
-    name,
-    email: result.profile.email,
-    role: result.profile.role,
-    ...(cachedUser?.image ? { image: cachedUser.image } : {}),
-    ...(cachedUser?.deliveryAddress
-      ? { deliveryAddress: cachedUser.deliveryAddress }
-      : {}),
-  };
-  const users = [
-    ...cachedUsers.filter(
-      (savedUser) => savedUser.email.toLowerCase() !== user.email.toLowerCase(),
-    ),
-    user,
-  ];
-  writeUsers(users);
-  return { user, users };
-}
+const sessionKey = "postcore-current-user";
 
 const emptyDeliveryAddress: DeliveryAddress = {
   recipient: "",
@@ -98,44 +51,17 @@ export function Storefront() {
   );
 
   useEffect(() => {
-    let isActive = true;
-    const restoreSupabaseSession = async () => {
-      try {
-        const cachedUsers = readUsers();
-        if (isActive) setUsers(cachedUsers);
-        window.localStorage.removeItem("postcore-current-user");
-        window.localStorage.removeItem("postcore-admin-id");
+    queueMicrotask(() => {
+      const session = restoreUserSession();
+      setUsers(session?.users ?? readUsers());
 
-        const supabase = createSupabaseBrowserClient();
-        const { data, error } = await supabase.auth.getUser();
-        if (error?.name === "AuthSessionMissingError") return;
-        if (error) throw error;
-        if (!data.user) return;
-
-        const session = await loadMarketplaceProfile(data.user);
-        if (!isActive) return;
-        setUsers(session.users);
-        setCurrentUser(session.user);
-        setDeliveryAddress({
-          ...emptyDeliveryAddress,
-          ...session.user.deliveryAddress,
-        });
-        setStatus(`Welcome back, ${session.user.name}!`);
-      } catch (loadError) {
-        if (isActive) {
-          setStatus(
-            loadError instanceof Error
-              ? loadError.message
-              : "Your marketplace account could not be loaded.",
-          );
-        }
-      }
-    };
-
-    void restoreSupabaseSession();
-    return () => {
-      isActive = false;
-    };
+      if (!session) return;
+      setCurrentUser(session.user);
+      setDeliveryAddress({
+        ...emptyDeliveryAddress,
+        ...session.user.deliveryAddress,
+      });
+    });
   }, []);
 
   useEffect(() => {
@@ -161,7 +87,13 @@ export function Storefront() {
     };
   }, []);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    if (typeof window !== "undefined" && currentUser) {
+      window.localStorage.setItem(sessionKey, JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const email = form.email.trim().toLowerCase();
 
@@ -175,45 +107,40 @@ export function Storefront() {
         setStatus("Please fill out the form and make sure passwords match.");
         return;
       }
-    }
 
-    try {
-      const supabase = createSupabaseBrowserClient();
-      if (mode === "register") {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password: form.password,
-          options: { data: { full_name: form.name.trim() } },
-        });
-        if (error) throw error;
-        if (!data.user || !data.session) {
-          setStatus(
-            "Check your email to confirm your account, then sign in. Your admin badge is applied after confirmation.",
-          );
-          return;
-        }
-
-        const session = await loadMarketplaceProfile(data.user);
-        setUsers(session.users);
-        setCurrentUser(session.user);
-        setDeliveryAddress({
-          ...emptyDeliveryAddress,
-          ...session.user.deliveryAddress,
-        });
-        setDeliveryStatus("");
-        setForm({ name: "", email: "", password: "", confirmPassword: "" });
-        setStatus(`Welcome aboard, ${session.user.name}! Your profile is ready.`);
+      const alreadyExists = users.some(
+        (user) => user.email.toLowerCase() === email,
+      );
+      if (alreadyExists) {
+        setStatus("That email is already registered.");
         return;
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const newUser: User = {
+        id: crypto.randomUUID(),
+        name: form.name.trim(),
         email,
         password: form.password,
-      });
-      if (error) throw new Error("Incorrect email or password.");
-      if (!data.user) throw new Error("Sign-in did not return an account.");
+      };
 
-      const session = await loadMarketplaceProfile(data.user);
+      const nextUsers = [...users, newUser];
+      const session = establishUserSession(newUser, nextUsers);
+      setUsers(session.users);
+      setCurrentUser(session.user);
+      setDeliveryAddress(emptyDeliveryAddress);
+      setDeliveryStatus("");
+      setForm({ name: "", email: "", password: "", confirmPassword: "" });
+      setStatus(`Welcome aboard, ${newUser.name}! Your profile is ready.`);
+      return;
+    }
+
+    const foundUser = users.find(
+      (user) =>
+        user.email.toLowerCase() === email && user.password === form.password,
+    );
+
+    if (foundUser) {
+      const session = establishUserSession(foundUser, users);
       setUsers(session.users);
       setCurrentUser(session.user);
       setDeliveryAddress({
@@ -222,13 +149,9 @@ export function Storefront() {
       });
       setDeliveryStatus("");
       setForm({ name: "", email: "", password: "", confirmPassword: "" });
-      setStatus(`Welcome back, ${session.user.name}!`);
-    } catch (authError) {
-      setStatus(
-        authError instanceof Error
-          ? authError.message
-          : "Sign-in failed. Please try again.",
-      );
+      setStatus(`Welcome back, ${foundUser.name}!`);
+    } else {
+      setStatus("Incorrect email or password. Try registering first.");
     }
   };
 
@@ -256,22 +179,13 @@ export function Storefront() {
     reader.readAsDataURL(file);
   };
 
-  const handleLogout = async () => {
-    try {
-      const { error } = await createSupabaseBrowserClient().auth.signOut();
-      if (error) throw error;
-    } catch (logoutError) {
-      setStatus(
-        logoutError instanceof Error
-          ? logoutError.message
-          : "Could not sign out. Please try again.",
-      );
-      return;
-    }
-
+  const handleLogout = () => {
     setCurrentUser(null);
     setDeliveryAddress(emptyDeliveryAddress);
     setDeliveryStatus("");
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(sessionKey);
+    }
     setStatus("You are signed out. Sign in anytime to continue selling.");
   };
 

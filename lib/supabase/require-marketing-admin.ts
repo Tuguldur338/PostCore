@@ -1,15 +1,26 @@
 import { getSupabaseConfig, supabaseSetupMessage } from "./config";
 import { createSupabaseServerClient } from "./server";
 
-type MarketplaceRole = "admin" | "marketplace_admin";
-
 export async function requireMarketingAdmin() {
   if (!getSupabaseConfig()) {
     return {
       client: null,
-      role: null,
       response: Response.json(
         { message: supabaseSetupMessage },
+        { status: 503 },
+      ),
+    };
+  }
+
+  const adminEmails = (process.env.MARKETING_ADMIN_EMAIL ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  if (adminEmails.length === 0) {
+    return {
+      client: null,
+      response: Response.json(
+        { message: "The marketing admin account is not configured." },
         { status: 503 },
       ),
     };
@@ -20,50 +31,26 @@ export async function requireMarketingAdmin() {
   if (error || !data.user) {
     return {
       client: null,
-      role: null,
       response: Response.json(
-        { message: "Sign in with a marketplace admin account to continue." },
+        { message: "Sign in with the marketing admin account to continue." },
         { status: 401 },
       ),
     };
   }
 
-  const { data: profile, error: profileError } = await client
-    .from("marketplace_profiles")
-    .select("role")
-    .eq("user_id", data.user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    console.error("Failed to verify marketplace role:", profileError.message);
-    return {
-      client: null,
-      role: null,
-      response: Response.json(
-        { message: "Marketplace admin access could not be verified." },
-        { status: 500 },
-      ),
-    };
-  }
-
   if (
-    !profile ||
-    (profile.role !== "admin" && profile.role !== "marketplace_admin")
+    !data.user.email ||
+    !adminEmails.includes(data.user.email.trim().toLowerCase()) ||
+    data.user.app_metadata.role !== "marketing_admin"
   ) {
     return {
       client: null,
-      role: null,
       response: Response.json(
-        { message: "Only marketplace admins can access this area." },
+        { message: "Only the authorized marketing admin can access this area." },
         { status: 403 },
       ),
     };
   }
 
-  return {
-    client,
-    role: profile.role as MarketplaceRole,
-    response: null,
-    user: data.user,
-  };
+  return { client, response: null, user: data.user };
 }

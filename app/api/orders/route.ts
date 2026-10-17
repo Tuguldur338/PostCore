@@ -1,5 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { getDeliveryAddressError } from "@/components/delivery-validation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getSupabaseConfig,
   supabaseSetupMessage,
@@ -17,6 +17,11 @@ type DeliveryAddress = {
   roomNumber: string;
   building: string;
   instructions: string;
+};
+
+type SavedOrderReceipt = {
+  orderReference?: unknown;
+  purchasedAt?: unknown;
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -38,6 +43,53 @@ function isDeliveryAddress(value: unknown): value is DeliveryAddress {
     typeof address.instructions === "string" &&
     address.instructions.length <= 1000
   );
+}
+
+export async function GET() {
+  if (!getSupabaseConfig()) {
+    return Response.json({ message: supabaseSetupMessage }, { status: 503 });
+  }
+
+  const client = await createSupabaseServerClient();
+  const { data: auth, error: authError } = await client.auth.getUser();
+  if (authError || !auth.user) {
+    return Response.json(
+      { message: "Sign in to view your purchase receipts." },
+      { status: 401 },
+    );
+  }
+
+  const { data: receipts, error } = await client
+    .from("orders")
+    .select(
+      "id, order_reference, product_name, price, quantity, seller_email, delivery_address, status, created_at",
+    )
+    .eq("buyer_id", auth.user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to retrieve purchase receipts:", error.message);
+    if (
+      error.code === "PGRST205" ||
+      error.code === "PGRST204" ||
+      error.code === "42P01" ||
+      error.code === "42703"
+    ) {
+      return Response.json(
+        {
+          message:
+            "Purchase history is not set up yet. Run the latest supabase/schema.sql in your Supabase project's SQL Editor.",
+        },
+        { status: 503 },
+      );
+    }
+    return Response.json(
+      { message: "Your purchase receipts could not be loaded." },
+      { status: 500 },
+    );
+  }
+
+  return Response.json({ receipts });
 }
 
 export async function POST(request: Request) {
@@ -86,13 +138,20 @@ export async function POST(request: Request) {
     return Response.json({ message: addressError }, { status: 400 });
   }
 
-  const client = createClient(config.url, config.anonKey, {
-    auth: {
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      persistSession: false,
-    },
-  });
+  const client = await createSupabaseServerClient();
+  const { data: auth, error: authError } = await client.auth.getUser();
+  if (authError || !auth.user) {
+    if (authError?.name !== "AuthSessionMissingError") {
+      console.error(
+        "Could not verify buyer session:",
+        authError?.message ?? "No authenticated buyer.",
+      );
+    }
+    return Response.json(
+      { message: "Sign in before placing an order so it appears in your receipts." },
+      { status: 401 },
+    );
+  }
   const orderReference = crypto.randomUUID().toUpperCase();
   const { data, error } = await client.rpc("place_order", {
     p_product_id: order.productId.trim(),
@@ -105,9 +164,19 @@ export async function POST(request: Request) {
       instructions: order.deliveryAddress.instructions.trim(),
     },
     p_order_reference: orderReference,
+    p_buyer_id: auth.user.id,
   });
 
   if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") {
+      return Response.json(
+        {
+          message:
+            "Order storage is not up to date. Run the latest supabase/schema.sql in your Supabase project's SQL Editor.",
+        },
+        { status: 503 },
+      );
+    }
     if (error.message.includes("PRODUCT_NOT_FOUND")) {
       return Response.json(
         { message: "This product is no longer available." },
@@ -126,6 +195,12 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
+    if (error.message.includes("INVALID_BUYER")) {
+      return Response.json(
+        { message: "Your account session changed. Sign in again and retry." },
+        { status: 401 },
+      );
+    }
     console.error("Failed to save purchase request:", error.message);
     return Response.json(
       { message: "The order could not be saved. Please try again." },
@@ -133,7 +208,24 @@ export async function POST(request: Request) {
     );
   }
 
+  const receipt =
+    data && typeof data === "object"
+      ? (data as SavedOrderReceipt)
+      : null;
+  if (
+    !receipt ||
+    typeof receipt.orderReference !== "string" ||
+    typeof receipt.purchasedAt !== "string"
+  ) {
+    console.error("The purchase function returned an invalid receipt.");
+    return Response.json(
+      { message: "The order was saved, but its receipt could not be prepared." },
+      { status: 500 },
+    );
+  }
+
   return Response.json({
-    orderReference: typeof data === "string" ? data : orderReference,
+    orderReference: receipt.orderReference,
+    purchasedAt: receipt.purchasedAt,
   });
 }

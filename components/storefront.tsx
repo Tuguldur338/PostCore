@@ -25,6 +25,16 @@ const sessionKey = "postcore-current-user";
 const authSetupMessage =
   "Shared sign-in is not configured on this deployment. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel Project Settings, then redeploy.";
 
+type MarketplaceProfileResponse = {
+  message?: string;
+  profile?: {
+    user_id: string;
+    email: string;
+    display_name: string;
+    role: User["role"];
+  };
+};
+
 const emptyDeliveryAddress: DeliveryAddress = {
   recipient: "",
   classNumber: "",
@@ -33,32 +43,34 @@ const emptyDeliveryAddress: DeliveryAddress = {
   instructions: "",
 };
 
-function createMarketplaceProfile(
+async function createMarketplaceProfile(
   authUser: SupabaseAuthUser,
   cachedUsers: User[],
-): User {
-  const email = authUser.email?.trim().toLowerCase();
-  if (!email) {
-    throw new Error("Your Supabase account does not have an email address.");
+): Promise<User> {
+  const response = await fetch("/api/profile", { cache: "no-store" });
+  const result = (await response.json()) as MarketplaceProfileResponse;
+  if (!response.ok || !result.profile) {
+    throw new Error(
+      result.message ?? "Your marketplace profile could not be loaded.",
+    );
   }
 
+  const email = result.profile.email.trim().toLowerCase();
   const cachedUser = cachedUsers.find(
     (user) => user.email.toLowerCase() === email,
   );
   const metadataName = authUser.user_metadata.full_name;
   const name =
+    result.profile.display_name.trim() ||
     (typeof metadataName === "string" && metadataName.trim()) ||
     cachedUser?.name ||
     email.split("@")[0];
 
   return {
-    id: authUser.id,
+    id: result.profile.user_id,
     name,
     email,
-    role:
-      authUser.app_metadata.role === "marketing_admin"
-        ? "admin"
-        : cachedUser?.role ?? "student",
+    role: result.profile.role,
     ...(cachedUser?.image ? { image: cachedUser.image } : {}),
     ...(cachedUser?.deliveryAddress
       ? { deliveryAddress: cachedUser.deliveryAddress }
@@ -116,7 +128,7 @@ export function Storefront() {
         if (error) throw error;
         if (!data.user || !isActive) return;
 
-        const user = createMarketplaceProfile(data.user, cachedUsers);
+        const user = await createMarketplaceProfile(data.user, cachedUsers);
         const nextUsers = saveMarketplaceProfile(user, cachedUsers);
         setUsers(nextUsers);
         setCurrentUser(user);
@@ -216,7 +228,7 @@ export function Storefront() {
           return;
         }
 
-        const user = createMarketplaceProfile(data.user, users);
+        const user = await createMarketplaceProfile(data.user, users);
         const nextUsers = saveMarketplaceProfile(user, users);
         setUsers(nextUsers);
         setCurrentUser(user);
@@ -240,7 +252,7 @@ export function Storefront() {
         throw new Error("Sign-in did not return an account. Please try again.");
       }
 
-      const user = createMarketplaceProfile(data.user, users);
+      const user = await createMarketplaceProfile(data.user, users);
       const nextUsers = saveMarketplaceProfile(user, users);
       setUsers(nextUsers);
       setCurrentUser(user);

@@ -1,3 +1,175 @@
+create table if not exists public.marketplace_profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  email text not null unique
+    check (email = lower(email)),
+  display_name text not null default '',
+  role text not null default 'student'
+    check (role in ('student', 'marketplace_admin', 'admin')),
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.is_marketplace_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.marketplace_profiles
+    where user_id = (select auth.uid())
+      and role in ('marketplace_admin', 'admin')
+  );
+$$;
+
+create or replace function public.is_platform_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.marketplace_profiles
+    where user_id = (select auth.uid())
+      and role = 'admin'
+  );
+$$;
+
+create or replace function public.sync_marketplace_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  assigned_role text := 'student';
+begin
+  if new.email is null then
+    return new;
+  end if;
+
+  if new.email_confirmed_at is not null then
+    if lower(new.email) = 'tuguldur09252@gmail.com' then
+      assigned_role := 'admin';
+    elsif new.raw_app_meta_data ->> 'role' = 'marketing_admin' then
+      assigned_role := 'marketplace_admin';
+    end if;
+  end if;
+
+  if tg_op = 'INSERT' then
+    insert into public.marketplace_profiles (
+      user_id, email, display_name, role
+    )
+    values (
+      new.id,
+      lower(new.email),
+      coalesce(new.raw_user_meta_data ->> 'full_name', ''),
+      assigned_role
+    )
+    on conflict (user_id) do nothing;
+  elsif new.email is distinct from old.email
+    or (old.email_confirmed_at is null and new.email_confirmed_at is not null) then
+    update public.marketplace_profiles
+    set email = lower(new.email),
+        role = case
+          when assigned_role = 'admin' then 'admin'
+          when old.email_confirmed_at is null and assigned_role = 'marketplace_admin'
+            and role = 'student' then 'marketplace_admin'
+          when new.email is distinct from old.email then 'student'
+          else role
+        end
+    where user_id = new.id;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_marketplace_profile on auth.users;
+create trigger sync_marketplace_profile
+  after insert or update of email, email_confirmed_at on auth.users
+  for each row execute function public.sync_marketplace_profile();
+
+insert into public.marketplace_profiles (user_id, email, display_name, role)
+select
+  users.id,
+  lower(users.email),
+  coalesce(users.raw_user_meta_data ->> 'full_name', ''),
+  case
+    when lower(users.email) = 'tuguldur09252@gmail.com'
+      and users.email_confirmed_at is not null then 'admin'
+    when users.email_confirmed_at is not null
+      and users.raw_app_meta_data ->> 'role' = 'marketing_admin'
+      then 'marketplace_admin'
+    else 'student'
+  end
+from auth.users as users
+on conflict (user_id) do nothing;
+
+update public.marketplace_profiles
+set role = 'admin'
+where email = 'tuguldur09252@gmail.com'
+  and exists (
+    select 1
+    from auth.users
+    where auth.users.id = marketplace_profiles.user_id
+      and auth.users.email_confirmed_at is not null
+  );
+
+alter table public.marketplace_profiles enable row level security;
+revoke all on public.marketplace_profiles from public, anon, authenticated;
+grant select on public.marketplace_profiles to authenticated;
+grant update (role) on public.marketplace_profiles to authenticated;
+revoke all on function public.is_marketplace_admin() from public, anon;
+revoke all on function public.is_platform_admin() from public, anon;
+grant execute on function public.is_marketplace_admin() to authenticated;
+grant execute on function public.is_platform_admin() to authenticated;
+
+drop policy if exists "Users can view their own marketplace profile" on public.marketplace_profiles;
+drop policy if exists "Users and marketplace admins can view marketplace profiles" on public.marketplace_profiles;
+create policy "Users and marketplace admins can view marketplace profiles"
+  on public.marketplace_profiles for select
+  to authenticated
+  using (
+    user_id = (select auth.uid())
+    or (select public.is_marketplace_admin())
+  );
+
+drop policy if exists "Platform admins can assign marketplace roles" on public.marketplace_profiles;
+drop policy if exists "Marketplace admins can assign marketplace roles" on public.marketplace_profiles;
+create policy "Marketplace admins can assign marketplace roles"
+  on public.marketplace_profiles for update
+  to authenticated
+  using (
+    (select public.is_marketplace_admin())
+    and user_id <> (select auth.uid())
+  )
+  with check (
+    (select public.is_marketplace_admin())
+    and user_id <> (select auth.uid())
+  );
+
+create or replace function public.protect_primary_marketplace_admin()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.email = 'tuguldur09252@gmail.com' and new.role <> 'admin' then
+    raise exception 'The primary admin role cannot be changed.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_primary_marketplace_admin on public.marketplace_profiles;
+create trigger protect_primary_marketplace_admin
+  before update of role on public.marketplace_profiles
+  for each row execute function public.protect_primary_marketplace_admin();
+
 create table if not exists public.products (
   id text primary key
     check (char_length(id) between 1 and 36),
@@ -70,7 +242,7 @@ create policy "Marketing admin can create products"
   on public.products for insert
   to authenticated
   with check (
-    auth.jwt() -> 'app_metadata' ->> 'role' = 'marketing_admin'
+    (select public.is_marketplace_admin())
   );
 
 drop policy if exists "Marketing admin can update products" on public.products;
@@ -78,10 +250,10 @@ create policy "Marketing admin can update products"
   on public.products for update
   to authenticated
   using (
-    auth.jwt() -> 'app_metadata' ->> 'role' = 'marketing_admin'
+    (select public.is_marketplace_admin())
   )
   with check (
-    auth.jwt() -> 'app_metadata' ->> 'role' = 'marketing_admin'
+    (select public.is_marketplace_admin())
   );
 
 drop policy if exists "Marketing admin can delete products" on public.products;
@@ -89,13 +261,14 @@ create policy "Marketing admin can delete products"
   on public.products for delete
   to authenticated
   using (
-    auth.jwt() -> 'app_metadata' ->> 'role' = 'marketing_admin'
+    (select public.is_marketplace_admin())
   );
 
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   order_reference text not null unique
     check (char_length(order_reference) between 1 and 36),
+  buyer_id uuid references auth.users(id) on delete set null,
   product_id text references public.products(id) on delete set null,
   product_name text not null
     check (char_length(btrim(product_name)) between 1 and 200),
@@ -141,6 +314,9 @@ alter table public.orders
 alter table public.orders
   add column if not exists quantity integer not null default 1
     check (quantity > 0);
+alter table public.orders
+  add column if not exists buyer_id uuid
+    references auth.users(id) on delete set null;
 
 alter table public.orders enable row level security;
 revoke all on public.orders from public, anon, authenticated;
@@ -149,11 +325,13 @@ grant update (status) on public.orders to authenticated;
 
 drop policy if exists "Anyone can submit an order" on public.orders;
 drop policy if exists "Marketing admin can view orders" on public.orders;
-create policy "Marketing admin can view orders"
+drop policy if exists "Buyers and marketplace admins can view orders" on public.orders;
+create policy "Buyers and marketplace admins can view orders"
   on public.orders for select
   to authenticated
   using (
-    auth.jwt() -> 'app_metadata' ->> 'role' = 'marketing_admin'
+    buyer_id = (select auth.uid())
+    or (select public.is_marketplace_admin())
   );
 
 drop policy if exists "Marketing admin can update orders" on public.orders;
@@ -161,10 +339,10 @@ create policy "Marketing admin can update orders"
   on public.orders for update
   to authenticated
   using (
-    auth.jwt() -> 'app_metadata' ->> 'role' = 'marketing_admin'
+    (select public.is_marketplace_admin())
   )
   with check (
-    auth.jwt() -> 'app_metadata' ->> 'role' = 'marketing_admin'
+    (select public.is_marketplace_admin())
   );
 
 drop policy if exists "Marketing admin can delete orders" on public.orders;
@@ -172,23 +350,32 @@ create policy "Marketing admin can delete orders"
   on public.orders for delete
   to authenticated
   using (
-    auth.jwt() -> 'app_metadata' ->> 'role' = 'marketing_admin'
+    (select public.is_marketplace_admin())
   );
+
+drop function if exists public.place_order(text, integer, jsonb, text);
 
 create or replace function public.place_order(
   p_product_id text,
   p_quantity integer,
   p_delivery_address jsonb,
-  p_order_reference text
+  p_order_reference text,
+  p_buyer_id uuid
 )
-returns text
+returns jsonb
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
   selected_product public.products%rowtype;
+  saved_order public.orders%rowtype;
 begin
+  if p_buyer_id is null
+    or p_buyer_id is distinct from (select auth.uid()) then
+    raise exception using message = 'INVALID_BUYER', errcode = 'P0001';
+  end if;
+
   if p_quantity is null or p_quantity < 1 then
     raise exception using message = 'INVALID_QUANTITY', errcode = 'P0001';
   end if;
@@ -219,6 +406,7 @@ begin
 
   insert into public.orders (
     order_reference,
+    buyer_id,
     product_id,
     product_name,
     price,
@@ -228,19 +416,24 @@ begin
   )
   values (
     p_order_reference,
+    p_buyer_id,
     selected_product.id,
     selected_product.name,
     selected_product.price,
     p_quantity,
     selected_product.seller_email,
     p_delivery_address
-  );
+  )
+  returning * into saved_order;
 
-  return p_order_reference;
+  return jsonb_build_object(
+    'orderReference', saved_order.order_reference,
+    'purchasedAt', saved_order.created_at
+  );
 end;
 $$;
 
-revoke all on function public.place_order(text, integer, jsonb, text)
+revoke all on function public.place_order(text, integer, jsonb, text, uuid)
   from public, anon, authenticated;
-grant execute on function public.place_order(text, integer, jsonb, text)
-  to anon, authenticated;
+grant execute on function public.place_order(text, integer, jsonb, text, uuid)
+  to authenticated;

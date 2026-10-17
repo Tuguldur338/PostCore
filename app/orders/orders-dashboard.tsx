@@ -28,15 +28,37 @@ type Order = {
 type OrdersResponse = {
   message?: string;
   orders?: Order[];
+  role?: "admin" | "marketplace_admin";
 };
+
+type MarketplaceRole = "admin" | "marketplace_admin" | "student";
+
+type MarketplaceAccount = {
+  user_id: string;
+  email: string;
+  display_name: string;
+  role: MarketplaceRole;
+  created_at: string;
+};
+
+function isMarketplaceRole(value: string): value is MarketplaceRole {
+  return (
+    value === "student" ||
+    value === "marketplace_admin" ||
+    value === "admin"
+  );
+}
 
 export function OrdersDashboard() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
+  const [accounts, setAccounts] = useState<MarketplaceAccount[]>([]);
+  const [role, setRole] = useState<"admin" | "marketplace_admin" | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [busyOrderId, setBusyOrderId] = useState("");
+  const [busyUserId, setBusyUserId] = useState("");
   const [error, setError] = useState("");
   const supabaseConfigured = Boolean(getSupabaseConfig());
 
@@ -46,7 +68,28 @@ export function OrdersDashboard() {
     if (!response.ok) {
       throw new Error(result.message ?? "Orders could not be loaded.");
     }
+    if (!result.role) {
+      throw new Error("Your marketplace admin role could not be verified.");
+    }
     setOrders(result.orders ?? []);
+    setRole(result.role);
+    if (result.role) {
+      const usersResponse = await fetch("/api/admin/users", {
+        cache: "no-store",
+      });
+      const usersResult = (await usersResponse.json()) as {
+        message?: string;
+        users?: MarketplaceAccount[];
+      };
+      if (!usersResponse.ok) {
+        throw new Error(
+          usersResult.message ?? "Marketplace accounts could not be loaded.",
+        );
+      }
+      setAccounts(usersResult.users ?? []);
+    } else {
+      setAccounts([]);
+    }
     setIsSignedIn(true);
   };
 
@@ -125,7 +168,46 @@ export function OrdersDashboard() {
       return;
     }
     setOrders([]);
+    setAccounts([]);
+    setRole(null);
     setIsSignedIn(false);
+  };
+
+  const updateRole = async (
+    account: MarketplaceAccount,
+    nextRole: MarketplaceRole,
+  ) => {
+    setError("");
+    setBusyUserId(account.user_id);
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: account.user_id, role: nextRole }),
+      });
+      const result = (await response.json()) as {
+        message?: string;
+        user?: MarketplaceAccount;
+      };
+      if (!response.ok || !result.user) {
+        throw new Error(
+          result.message ?? "The marketplace badge could not be updated.",
+        );
+      }
+      setAccounts((current) =>
+        current.map((item) =>
+          item.user_id === result.user?.user_id ? result.user : item,
+        ),
+      );
+    } catch (roleError) {
+      setError(
+        roleError instanceof Error
+          ? roleError.message
+          : "The marketplace badge could not be updated.",
+      );
+    } finally {
+      setBusyUserId("");
+    }
   };
 
   const updateStatus = async (order: Order) => {
@@ -193,7 +275,7 @@ export function OrdersDashboard() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">
-            Marketing admin
+            {role === "admin" ? "ADMIN" : "Marketplace admin"}
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">
             Purchase requests
@@ -375,10 +457,73 @@ export function OrdersDashboard() {
           </button>
           <p className="text-xs leading-5 text-slate-500">
             Use the marketing admin email and password created in Supabase.
-            Personal marketplace accounts cannot access order details.
+            Use an account assigned the ADMIN or Marketplace Admin badge.
           </p>
         </form>
       )}
+
+      {isSignedIn && role ? (
+        <section className="mt-8 border-t border-slate-200 pt-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-700">
+            {role === "admin" ? "ADMIN controls" : "Marketplace Admin controls"}
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+            Marketplace account badges
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Assign Student, Marketplace Admin, or ADMIN badges to other
+            registered accounts. The primary ADMIN account is protected from
+            badge changes.
+          </p>
+          {accounts.length ? (
+            <div className="mt-5 grid gap-3">
+              {accounts.map((account) => (
+                <div
+                  key={account.user_id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900">
+                      {account.display_name || "Marketplace user"}
+                    </p>
+                    <p className="truncate text-sm text-slate-600">
+                      {account.email}
+                    </p>
+                  </div>
+                  <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Badge
+                    <select
+                      value={account.role}
+                      disabled={
+                        busyUserId === account.user_id ||
+                        account.email.toLowerCase() ===
+                          "tuguldur09252@gmail.com"
+                      }
+                      onChange={(event) => {
+                        const nextRole = event.currentTarget.value;
+                        if (isMarketplaceRole(nextRole)) {
+                          void updateRole(account, nextRole);
+                        }
+                      }}
+                      className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="student">Student</option>
+                      <option value="marketplace_admin">
+                        Marketplace Admin
+                      </option>
+                      <option value="admin">ADMIN</option>
+                    </select>
+                  </label>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-5 rounded-2xl bg-slate-50 p-5 text-sm text-slate-600">
+              No registered marketplace accounts are available to manage yet.
+            </p>
+          )}
+        </section>
+      ) : null}
     </section>
   );
 }

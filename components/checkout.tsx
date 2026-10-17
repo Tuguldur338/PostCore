@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { formatMntPrice, parseMntAmount } from "./currency";
 import { getDeliveryAddressError } from "./delivery-validation";
@@ -18,6 +19,7 @@ const emptyDeliveryAddress: DeliveryAddress = {
 type OrderSubmissionResponse = {
   message?: string;
   orderReference?: string;
+  purchasedAt?: string;
 };
 
 type CheckoutDialogProps = {
@@ -34,6 +36,7 @@ export function CheckoutDialog({
   const [deliveryAddress, setDeliveryAddress] =
     useState<DeliveryAddress>(emptyDeliveryAddress);
   const [orderReference, setOrderReference] = useState("");
+  const [purchasedAt, setPurchasedAt] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -96,11 +99,12 @@ export function CheckoutDialog({
         }),
       });
       const result = (await response.json()) as OrderSubmissionResponse;
-      if (!response.ok || !result.orderReference) {
+      if (!response.ok || !result.orderReference || !result.purchasedAt) {
         throw new Error(result.message ?? "The order could not be saved.");
       }
 
       setOrderReference(result.orderReference);
+      setPurchasedAt(result.purchasedAt);
       onPurchaseSuccess?.(product.id, requestedQuantity);
     } catch (submitError) {
       setError(
@@ -150,6 +154,9 @@ export function CheckoutDialog({
             </p>
             <p className="mt-2 text-sm text-emerald-800">
               Order reference: {orderReference}
+            </p>
+            <p className="mt-1 text-sm text-emerald-800">
+              Date purchased: {new Date(purchasedAt).toLocaleString()}
             </p>
             <p className="mt-3 text-sm text-emerald-800">
               The marketing admin will review your request. No payment was
@@ -258,6 +265,14 @@ export function CheckoutDialog({
                     className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
                   >
                     <p>{error}</p>
+                    {error.includes("Sign in before placing an order") ? (
+                      <Link
+                        href="/#account"
+                        className="mt-2 inline-flex font-semibold underline underline-offset-2"
+                      >
+                        Sign in to your account
+                      </Link>
+                    ) : null}
                   </div>
                 ) : null}
                 <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">

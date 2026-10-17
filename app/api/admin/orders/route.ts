@@ -4,8 +4,8 @@ const orderIdPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function GET() {
-  const { client, response } = await requireMarketingAdmin();
-  if (response || !client) {
+  const { client, response, role } = await requireMarketingAdmin();
+  if (response || !client || !role) {
     return (
       response ??
       Response.json({ message: "Order access could not be verified." }, { status: 500 })
@@ -27,7 +27,7 @@ export async function GET() {
     );
   }
 
-  return Response.json({ orders: data });
+  return Response.json({ orders: data, role });
 }
 
 export async function PATCH(request: Request) {

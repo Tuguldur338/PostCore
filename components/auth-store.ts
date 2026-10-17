@@ -31,7 +31,7 @@ function sanitizeUser(value: unknown): User | null {
     id: saved.id,
     name: saved.name,
     email: saved.email,
-    role: saved.role === "admin" ? "admin" : "student",
+    role: "student",
     ...(typeof saved.image === "string" ? { image: saved.image } : {}),
     ...(isDeliveryAddress(saved.deliveryAddress)
       ? { deliveryAddress: saved.deliveryAddress }

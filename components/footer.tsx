@@ -32,7 +32,7 @@ export function Footer() {
                   href="#items"
                   className="transition-colors duration-200 ease-out hover:text-white"
                 >
-                  Classroom delivery
+                  Browse products
                 </a>
               </li>
               <li>

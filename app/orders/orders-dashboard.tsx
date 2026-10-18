@@ -5,22 +5,14 @@ import { formatMntPrice, parseMntAmount } from "@/components/currency";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 
-type DeliveryAddress = {
-  recipient: string;
-  classNumber: string;
-  roomNumber: string;
-  building: string;
-  instructions: string;
-};
-
 type Order = {
   id: string;
   order_reference: string;
+  buyer_email: string | null;
   product_name: string;
   price: string;
   quantity: number;
   seller_email: string | null;
-  delivery_address: DeliveryAddress;
   status: "new" | "completed";
   created_at: string;
 };
@@ -413,32 +405,10 @@ export function OrdersDashboard() {
                   </div>
 
                   <dl className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                    <div>
-                      <dt className="inline font-semibold">Student: </dt>
-                      <dd className="inline">
-                        {order.delivery_address.recipient}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="inline font-semibold">Class: </dt>
-                      <dd className="inline">
-                        {order.delivery_address.classNumber}
-                      </dd>
-                    </div>
-                    {order.delivery_address.roomNumber ? (
+                    {order.buyer_email ? (
                       <div>
-                        <dt className="inline font-semibold">Room: </dt>
-                        <dd className="inline">
-                          {order.delivery_address.roomNumber}
-                        </dd>
-                      </div>
-                    ) : null}
-                    {order.delivery_address.building ? (
-                      <div>
-                        <dt className="inline font-semibold">Floor: </dt>
-                        <dd className="inline">
-                          {order.delivery_address.building}
-                        </dd>
+                        <dt className="inline font-semibold">Buyer: </dt>
+                        <dd className="inline">{order.buyer_email}</dd>
                       </div>
                     ) : null}
                     {order.seller_email ? (
@@ -454,12 +424,6 @@ export function OrdersDashboard() {
                       </dd>
                     </div>
                   </dl>
-                  {order.delivery_address.instructions ? (
-                    <p className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-700">
-                      <span className="font-semibold">Notes: </span>
-                      {order.delivery_address.instructions}
-                    </p>
-                  ) : null}
 
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
                     <button

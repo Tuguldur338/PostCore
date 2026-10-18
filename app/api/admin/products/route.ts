@@ -11,6 +11,9 @@ type ProductInput = {
   image?: unknown;
   category?: unknown;
   fitsFor?: unknown;
+  pickupClass?: unknown;
+  pickupRoom?: unknown;
+  pickupMethod?: unknown;
   quantity?: unknown;
 };
 
@@ -30,6 +33,9 @@ function toProduct(row: {
   image: string;
   category: string;
   fits_for: string;
+  pickup_class: string;
+  pickup_room: string;
+  pickup_method: string;
   quantity: number | null;
   is_available: boolean;
 }): Product {
@@ -42,6 +48,9 @@ function toProduct(row: {
     image: row.image,
     category: row.category,
     fitsFor: row.fits_for,
+    pickupClass: row.pickup_class,
+    pickupRoom: row.pickup_room,
+    pickupMethod: row.pickup_method,
     quantity: row.quantity ?? undefined,
     outOfStock: !row.is_available,
   };
@@ -81,6 +90,16 @@ export async function POST(request: Request) {
     !isText(body.image, maxProductImageDataUrlLength) ||
     !isText(body.category, 80) ||
     !isText(body.fitsFor, 200) ||
+    (body.pickupClass !== undefined &&
+      (typeof body.pickupClass !== "string" ||
+        body.pickupClass.length > 20 ||
+        (body.pickupClass.trim() !== "" &&
+          !/^(?:[1-9]|1[0-2])[A-D]$/i.test(body.pickupClass.trim())))) ||
+    (body.pickupRoom !== undefined &&
+      (typeof body.pickupRoom !== "string" || body.pickupRoom.length > 100)) ||
+    (body.pickupMethod !== undefined &&
+      (typeof body.pickupMethod !== "string" ||
+        body.pickupMethod.length > 160)) ||
     typeof body.quantity !== "number" ||
     !Number.isSafeInteger(body.quantity) ||
     body.quantity < 1 ||
@@ -98,6 +117,12 @@ export async function POST(request: Request) {
     image: body.image,
     category: body.category.trim(),
     fits_for: body.fitsFor.trim(),
+    pickup_class:
+      typeof body.pickupClass === "string" ? body.pickupClass.trim() : "",
+    pickup_room:
+      typeof body.pickupRoom === "string" ? body.pickupRoom.trim() : "",
+    pickup_method:
+      typeof body.pickupMethod === "string" ? body.pickupMethod.trim() : "",
     seller_email: user.email?.trim().toLowerCase() ?? null,
     quantity: body.quantity,
     is_available: true,
@@ -106,12 +131,21 @@ export async function POST(request: Request) {
     .from("products")
     .upsert(row, { onConflict: "id", ignoreDuplicates: true })
     .select(
-      "id, name, price, badge, description, image, category, fits_for, quantity, is_available",
+      "id, name, price, badge, description, image, category, fits_for, pickup_class, pickup_room, pickup_method, quantity, is_available",
     )
     .maybeSingle();
 
   if (error) {
     console.error("Failed to create product:", error.message);
+    if (error.code === "42703") {
+      return Response.json(
+        {
+          message:
+            "Supabase is missing the seller pickup-detail fields. Run the latest supabase/schema.sql in your Supabase SQL Editor, then try again.",
+        },
+        { status: 503 },
+      );
+    }
     if (
       error.code === "23514" &&
       error.message.includes("products_image_check")

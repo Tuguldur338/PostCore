@@ -1,21 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { formatMntPrice, parseMntAmount } from "./currency";
-import { getDeliveryAddressError } from "./delivery-validation";
 import { QuantityInput } from "./quantity-input";
-import type { DeliveryAddress, Product } from "./types";
-
-const sessionStorageKey = "postcore-current-user";
-
-const emptyDeliveryAddress: DeliveryAddress = {
-  recipient: "",
-  classNumber: "",
-  roomNumber: "",
-  building: "",
-  instructions: "",
-};
+import type { Product } from "./types";
 
 type OrderSubmissionResponse = {
   code?: string;
@@ -37,48 +26,15 @@ export function CheckoutDialog({
   onPurchaseSuccess,
   onStockChanged,
 }: CheckoutDialogProps) {
-  const [deliveryAddress, setDeliveryAddress] =
-    useState<DeliveryAddress>(emptyDeliveryAddress);
   const [orderReference, setOrderReference] = useState("");
   const [purchasedAt, setPurchasedAt] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    try {
-      const rawSession = window.localStorage.getItem(sessionStorageKey);
-      if (!rawSession) return;
-
-      const user = JSON.parse(rawSession) as {
-        deliveryAddress?: Partial<DeliveryAddress>;
-      };
-      if (user.deliveryAddress) {
-        queueMicrotask(() => {
-          setDeliveryAddress({
-            ...emptyDeliveryAddress,
-            ...user.deliveryAddress,
-          });
-        });
-      }
-    } catch {
-      window.localStorage.removeItem(sessionStorageKey);
-    }
-  }, []);
-
-  const handleAddressChange = (field: keyof DeliveryAddress, value: string) => {
-    setDeliveryAddress((previous) => ({ ...previous, [field]: value }));
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-
-    const validationError = getDeliveryAddressError(deliveryAddress);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
 
     const requestedQuantity = Number(quantity);
     if (product.outOfStock || product.quantity === 0) {
@@ -111,7 +67,6 @@ export function CheckoutDialog({
         body: JSON.stringify({
           productId: product.id,
           quantity: requestedQuantity,
-          deliveryAddress,
         }),
       });
       const result = (await response.json()) as OrderSubmissionResponse;
@@ -156,7 +111,7 @@ export function CheckoutDialog({
               id="checkout-title"
               className="mt-1 text-2xl font-semibold text-slate-900"
             >
-              {orderReference ? "Request sent" : "Classroom delivery"}
+              {orderReference ? "Request sent" : "Place an order"}
             </h2>
           </div>
           <button
@@ -176,6 +131,9 @@ export function CheckoutDialog({
             </p>
             <p className="mt-2 text-sm text-emerald-800">
               Order reference: {orderReference}
+            </p>
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+              Recommended to write your order code on paper.
             </p>
             <p className="mt-1 text-sm text-emerald-800">
               Date purchased: {new Date(purchasedAt).toLocaleString()}
@@ -211,109 +169,56 @@ export function CheckoutDialog({
             </div>
 
             <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="purchase-quantity"
-                    className="text-sm font-semibold text-slate-700"
-                  >
-                    Quantity
-                  </label>
-                  <QuantityInput
-                    id="purchase-quantity"
-                    min={1}
-                    max={product.quantity}
-                    value={quantity}
-                    onChange={setQuantity}
-                    ariaLabel="Purchase quantity"
-                  />
+              <div className="grid gap-2">
+                <label
+                  htmlFor="purchase-quantity"
+                  className="text-sm font-semibold text-slate-700"
+                >
+                  Quantity
+                </label>
+                <QuantityInput
+                  id="purchase-quantity"
+                  min={1}
+                  max={product.quantity}
+                  value={quantity}
+                  onChange={setQuantity}
+                  ariaLabel="Purchase quantity"
+                />
+              </div>
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-5 text-amber-900">
+                PostCore does not collect classroom, room, floor, or delivery
+                destinations. This is a purchase request only; no delivery is
+                arranged through the website.
+              </p>
+              {error ? (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                >
+                  <p>{error}</p>
+                  {error.includes("Sign in before placing an order") ? (
+                    <Link
+                      href="/#account"
+                      className="mt-2 inline-flex font-semibold underline underline-offset-2"
+                    >
+                      Sign in to your account
+                    </Link>
+                  ) : null}
                 </div>
-                <input
-                  required
-                  autoComplete="name"
-                  value={deliveryAddress.recipient}
-                  onChange={(event) =>
-                    handleAddressChange("recipient", event.target.value)
-                  }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="Student name"
-                  aria-label="Student name"
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <input
-                    required
-                    value={deliveryAddress.classNumber}
-                    onChange={(event) =>
-                      handleAddressChange("classNumber", event.target.value)
-                    }
-                    className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                    placeholder="Class (e.g. 10B)"
-                    aria-label="Class number"
-                    pattern="\s*(?:[1-9]|1[0-2])[A-Da-d]\s*"
-                    title="Enter a class from 1A to 12D, such as 10B."
-                  />
-                  <input
-                    value={deliveryAddress.roomNumber}
-                    onChange={(event) =>
-                      handleAddressChange("roomNumber", event.target.value)
-                    }
-                    className="min-w-0 rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                    placeholder="Room number (e.g. 204, optional if floor is entered)"
-                    aria-label="Room number (optional if building or floor is entered)"
-                  />
-                </div>
-                <input
-                  required={!deliveryAddress.roomNumber.trim()}
-                  value={deliveryAddress.building}
-                  onChange={(event) =>
-                    handleAddressChange("building", event.target.value)
-                  }
-                  className="w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="1-4"
-                  aria-label="Floor (required if room number is empty)"
-                  pattern="[1-4]"
-                  title="Enter a floor number from 1 to 4."
-                />
-                <textarea
-                  value={deliveryAddress.instructions}
-                  onChange={(event) =>
-                    handleAddressChange("instructions", event.target.value)
-                  }
-                  className="min-h-20 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none transition-colors focus:border-orange-400"
-                  placeholder="Notes, e.g. leave with the class teacher (optional)"
-                  aria-label="Delivery notes"
-                />
-                <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
-                  Recommended to write on paper
+              ) : null}
+              <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs leading-5 text-slate-500">
+                  Your request will be saved for the marketing admin to review.
+                  No payment is taken here.
                 </p>
-                {error ? (
-                  <div
-                    role="alert"
-                    className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-                  >
-                    <p>{error}</p>
-                    {error.includes("Sign in before placing an order") ? (
-                      <Link
-                        href="/#account"
-                        className="mt-2 inline-flex font-semibold underline underline-offset-2"
-                      >
-                        Sign in to your account
-                      </Link>
-                    ) : null}
-                  </div>
-                ) : null}
-                <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs leading-5 text-slate-500">
-                    Your request will be saved for the marketing admin to review.
-                    No payment is taken here.
-                  </p>
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400"
-                  >
-                    {isSaving ? "Saving request..." : "Place order request"}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="rounded-full bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-400"
+                >
+                  {isSaving ? "Saving request..." : "Place order request"}
+                </button>
+              </div>
             </form>
           </>
         )}

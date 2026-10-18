@@ -1,4 +1,3 @@
-import { getDeliveryAddressError } from "@/components/delivery-validation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getSupabaseConfig,
@@ -8,15 +7,6 @@ import {
 type PurchaseRequest = {
   productId?: unknown;
   quantity?: unknown;
-  deliveryAddress?: unknown;
-};
-
-type DeliveryAddress = {
-  recipient: string;
-  classNumber: string;
-  roomNumber: string;
-  building: string;
-  instructions: string;
 };
 
 type SavedOrderReceipt = {
@@ -55,23 +45,6 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function isDeliveryAddress(value: unknown): value is DeliveryAddress {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const address = value as Record<string, unknown>;
-  return (
-    typeof address.recipient === "string" &&
-    address.recipient.trim().length <= 200 &&
-    typeof address.classNumber === "string" &&
-    address.classNumber.length <= 20 &&
-    typeof address.roomNumber === "string" &&
-    address.roomNumber.length <= 100 &&
-    typeof address.building === "string" &&
-    address.building.length <= 20 &&
-    typeof address.instructions === "string" &&
-    address.instructions.length <= 1000
-  );
-}
-
 export async function GET() {
   if (!getSupabaseConfig()) {
     return Response.json({ message: supabaseSetupMessage }, { status: 503 });
@@ -89,7 +62,7 @@ export async function GET() {
   const { data: receipts, error } = await client
     .from("orders")
     .select(
-      "id, order_reference, product_name, price, quantity, seller_email, delivery_address, status, created_at",
+      "id, order_reference, product_name, price, quantity, seller_email, status, created_at",
     )
     .eq("buyer_id", auth.user.id)
     .order("created_at", { ascending: false });
@@ -116,7 +89,33 @@ export async function GET() {
     );
   }
 
-  return Response.json({ receipts });
+  const { data: profile, error: profileError } = await client
+    .from("marketplace_profiles")
+    .select("display_name")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("Failed to retrieve purchase receipt name:", profileError.message);
+    return Response.json(
+      { message: "Your purchaser name could not be loaded for your receipts." },
+      { status: 500 },
+    );
+  }
+
+  const metadataName = auth.user.user_metadata.full_name;
+  const purchaserName =
+    profile?.display_name.trim() ||
+    (typeof metadataName === "string" ? metadataName.trim() : "") ||
+    auth.user.email?.split("@")[0] ||
+    "Account holder";
+
+  return Response.json({
+    receipts: receipts.map((receipt) => ({
+      ...receipt,
+      purchaser_name: purchaserName,
+    })),
+  });
 }
 
 export async function POST(request: Request) {
@@ -151,18 +150,12 @@ export async function POST(request: Request) {
     typeof order.quantity !== "number" ||
     !Number.isSafeInteger(order.quantity) ||
     order.quantity < 1 ||
-    order.quantity > 2_147_483_647 ||
-    !isDeliveryAddress(order.deliveryAddress)
+    order.quantity > 2_147_483_647
   ) {
     return Response.json(
-      { message: "The order request is missing valid product or delivery details." },
+      { message: "The order request is missing valid product or quantity details." },
       { status: 400 },
     );
-  }
-
-  const addressError = getDeliveryAddressError(order.deliveryAddress);
-  if (addressError) {
-    return Response.json({ message: addressError }, { status: 400 });
   }
 
   const client = await createSupabaseServerClient();
@@ -193,13 +186,6 @@ export async function POST(request: Request) {
     const result = await client.rpc("place_order", {
       p_product_id: order.productId.trim(),
       p_quantity: order.quantity,
-      p_delivery_address: {
-        recipient: order.deliveryAddress.recipient.trim(),
-        classNumber: order.deliveryAddress.classNumber.trim(),
-        roomNumber: order.deliveryAddress.roomNumber.trim(),
-        building: order.deliveryAddress.building.trim(),
-        instructions: order.deliveryAddress.instructions.trim(),
-      },
       p_order_reference: orderReference,
       p_buyer_id: auth.user.id,
     });

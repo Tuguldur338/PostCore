@@ -556,6 +556,24 @@ export function Catalog({
               <span className="font-semibold text-slate-900">Fits:</span>{" "}
               {selectedProduct.fitsFor}
             </p>
+            {selectedProduct.pickupClass ||
+            selectedProduct.pickupRoom ||
+            selectedProduct.pickupMethod ? (
+              <div className="mt-3 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-slate-700">
+                <p className="font-semibold text-slate-900">Pickup details</p>
+                {selectedProduct.pickupClass ? (
+                  <p className="mt-1">
+                    Class: {selectedProduct.pickupClass}
+                  </p>
+                ) : null}
+                {selectedProduct.pickupRoom ? (
+                  <p className="mt-1">Room: {selectedProduct.pickupRoom}</p>
+                ) : null}
+                {selectedProduct.pickupMethod ? (
+                  <p className="mt-1">{selectedProduct.pickupMethod}</p>
+                ) : null}
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={() => startCheckout(selectedProduct)}

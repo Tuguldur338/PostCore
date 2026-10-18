@@ -4,15 +4,6 @@ export type User = {
   email: string;
   role: "admin" | "marketplace_admin" | "student";
   image?: string;
-  deliveryAddress?: DeliveryAddress;
-};
-
-export type DeliveryAddress = {
-  recipient: string;
-  classNumber: string;
-  roomNumber: string;
-  building: string;
-  instructions: string;
 };
 
 export type AuthMode = "login" | "register";
@@ -26,6 +17,9 @@ export type Product = {
   image: string;
   category: string;
   fitsFor: string;
+  pickupClass?: string;
+  pickupRoom?: string;
+  pickupMethod?: string;
   sellerEmail?: string;
   quantity?: number;
   outOfStock?: boolean;

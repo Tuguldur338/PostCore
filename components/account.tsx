@@ -1,5 +1,5 @@
 import { useState, type ChangeEvent, type FormEvent } from "react";
-import type { AuthForm, AuthMode, DeliveryAddress, User } from "./types";
+import type { AuthForm, AuthMode, User } from "./types";
 
 type AuthPanelProps = {
   currentUser: User | null;
@@ -14,13 +14,6 @@ type AuthPanelProps = {
   onInputChange: (field: keyof AuthForm, value: string) => void;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onLogout: () => void;
-  deliveryAddress: DeliveryAddress;
-  deliveryStatus: string;
-  onDeliveryAddressChange: (
-    field: keyof DeliveryAddress,
-    value: string,
-  ) => void;
-  onDeliveryAddressSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
 function getInitials(name: string) {
@@ -45,10 +38,6 @@ export function Account({
   onInputChange,
   onImageChange,
   onLogout,
-  deliveryAddress,
-  deliveryStatus,
-  onDeliveryAddressChange,
-  onDeliveryAddressSubmit,
 }: AuthPanelProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -108,97 +97,6 @@ export function Account({
             onChange={onImageChange}
           />
         </label>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-4">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-sky-600">
-              Classroom delivery
-            </p>
-            <h3 className="mt-1 text-xl font-semibold text-slate-900">
-              Which class and room or floor should we bring your order to?
-            </h3>
-          </div>
-          <form className="mt-4 space-y-3" onSubmit={onDeliveryAddressSubmit}>
-            <input
-              required
-              autoComplete="name"
-              value={deliveryAddress.recipient}
-              onChange={(event) =>
-                onDeliveryAddressChange("recipient", event.target.value)
-              }
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Full name"
-              aria-label="Full name"
-            />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                required
-                value={deliveryAddress.classNumber}
-                onChange={(event) =>
-                  onDeliveryAddressChange("classNumber", event.target.value)
-                }
-                className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-                placeholder="Class (e.g. 10B)"
-                aria-label="Class number"
-                pattern="\s*(?:[1-9]|1[0-2])[A-Da-d]\s*"
-                title="Enter a class from 1A to 12D, such as 10B."
-              />
-              <input
-                value={deliveryAddress.roomNumber}
-                onChange={(event) =>
-                  onDeliveryAddressChange("roomNumber", event.target.value)
-                }
-                className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-                placeholder="Room number (e.g. 204, optional if floor is entered)"
-                aria-label="Room number (optional if building or floor is entered)"
-              />
-            </div>
-            <input
-              required={!deliveryAddress.roomNumber.trim()}
-              value={deliveryAddress.building}
-              onChange={(event) =>
-                onDeliveryAddressChange("building", event.target.value)
-              }
-              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Enter floor number 1-4"
-              aria-label="Floor (required if room number is empty)"
-              pattern="[1-4]"
-              title="Enter a floor number from 1 to 4."
-            />
-            <textarea
-              value={deliveryAddress.instructions}
-              onChange={(event) =>
-                onDeliveryAddressChange("instructions", event.target.value)
-              }
-              className="min-h-20 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none transition-colors focus:border-sky-400"
-              placeholder="Notes, e.g. leave with the class teacher (optional)"
-              aria-label="Delivery notes"
-            />
-            <button
-              type="submit"
-              className="smooth-transition w-full rounded-2xl bg-sky-600 px-4 py-3 font-semibold text-white transition-colors duration-200 ease-out hover:bg-sky-700"
-            >
-              Save class and room
-            </button>
-            {deliveryStatus ? (
-              <div
-                role={
-                  deliveryStatus.startsWith("Delivery destination saved")
-                    ? "status"
-                    : "alert"
-                }
-                aria-live="polite"
-                className={`rounded-xl border p-3 text-sm ${
-                  deliveryStatus.startsWith("Delivery destination saved")
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                    : "border-red-200 bg-red-50 text-red-700"
-                }`}
-              >
-                {deliveryStatus}
-              </div>
-            ) : null}
-          </form>
-        </section>
 
         <button
           type="button"

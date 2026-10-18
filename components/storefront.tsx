@@ -6,7 +6,6 @@ import {
   readUsers,
   writeUsers,
 } from "@/components/auth-store";
-import { getDeliveryAddressError } from "@/components/delivery-validation";
 import { Catalog } from "@/components/catalog";
 import { Intro } from "@/components/intro";
 import { fetchSharedProducts } from "@/components/product-store";
@@ -16,7 +15,6 @@ import type { User as SupabaseAuthUser } from "@supabase/supabase-js";
 import type {
   AuthForm,
   AuthMode,
-  DeliveryAddress,
   Product,
   User,
 } from "@/components/types";
@@ -104,14 +102,6 @@ type MarketplaceProfileResponse = {
   };
 };
 
-const emptyDeliveryAddress: DeliveryAddress = {
-  recipient: "",
-  classNumber: "",
-  roomNumber: "",
-  building: "",
-  instructions: "",
-};
-
 async function createMarketplaceProfile(
   authUser: SupabaseAuthUser,
   cachedUsers: User[],
@@ -141,9 +131,6 @@ async function createMarketplaceProfile(
     email,
     role: result.profile.role,
     ...(cachedUser?.image ? { image: cachedUser.image } : {}),
-    ...(cachedUser?.deliveryAddress
-      ? { deliveryAddress: cachedUser.deliveryAddress }
-      : {}),
   };
 }
 
@@ -170,9 +157,6 @@ export function Storefront() {
   });
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [deliveryAddress, setDeliveryAddress] =
-    useState<DeliveryAddress>(emptyDeliveryAddress);
-  const [deliveryStatus, setDeliveryStatus] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [hasSellerProducts, setHasSellerProducts] = useState(false);
   const [catalogError, setCatalogError] = useState("");
@@ -203,10 +187,6 @@ export function Storefront() {
         const nextUsers = saveMarketplaceProfile(user, cachedUsers);
         setUsers(nextUsers);
         setCurrentUser(user);
-        setDeliveryAddress({
-          ...emptyDeliveryAddress,
-          ...user.deliveryAddress,
-        });
         window.localStorage.setItem(sessionKey, JSON.stringify(user));
         setStatus(`Welcome back, ${user.name}!`);
       } catch (restoreError) {
@@ -313,8 +293,6 @@ export function Storefront() {
         const nextUsers = saveMarketplaceProfile(user, users);
         setUsers(nextUsers);
         setCurrentUser(user);
-        setDeliveryAddress(emptyDeliveryAddress);
-        setDeliveryStatus("");
         setForm({ name: "", email: "", password: "", confirmPassword: "" });
         setStatus(`Welcome aboard, ${user.name}! Your profile is ready.`);
         return;
@@ -337,11 +315,6 @@ export function Storefront() {
       const nextUsers = saveMarketplaceProfile(user, users);
       setUsers(nextUsers);
       setCurrentUser(user);
-      setDeliveryAddress({
-        ...emptyDeliveryAddress,
-        ...user.deliveryAddress,
-      });
-      setDeliveryStatus("");
       setForm({ name: "", email: "", password: "", confirmPassword: "" });
       setStatus(`Welcome back, ${user.name}!`);
     } catch (authError) {
@@ -419,36 +392,10 @@ export function Storefront() {
     }
 
     setCurrentUser(null);
-    setDeliveryAddress(emptyDeliveryAddress);
-    setDeliveryStatus("");
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(sessionKey);
     }
     setStatus("You are signed out. Sign in anytime to continue selling.");
-  };
-
-  const handleDeliveryAddressChange = (
-    field: keyof DeliveryAddress,
-    value: string,
-  ) => {
-    setDeliveryAddress((previous) => ({ ...previous, [field]: value }));
-  };
-
-  const handleDeliveryAddressSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!currentUser) return;
-
-    const validationError = getDeliveryAddressError(deliveryAddress);
-    if (validationError) {
-      setDeliveryStatus(validationError);
-      return;
-    }
-
-    const updatedUser = { ...currentUser, deliveryAddress };
-    const nextUsers = saveMarketplaceProfile(updatedUser, users);
-    setUsers(nextUsers);
-    setCurrentUser(updatedUser);
-    setDeliveryStatus("Delivery destination saved to your account.");
   };
 
   return (
@@ -525,10 +472,6 @@ export function Storefront() {
             onInputChange={handleInputChange}
             onImageChange={handleImageChange}
             onLogout={handleLogout}
-            deliveryAddress={deliveryAddress}
-            deliveryStatus={deliveryStatus}
-            onDeliveryAddressChange={handleDeliveryAddressChange}
-            onDeliveryAddressSubmit={handleDeliveryAddressSubmit}
           />
         </div>
       </section>

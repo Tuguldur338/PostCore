@@ -17,12 +17,21 @@ export async function GET() {
   const { data, error } = await client
     .from("products")
     .select(
-      "id, name, price, badge, description, image, category, fits_for, quantity, is_available",
+      "id, name, price, badge, description, image, category, fits_for, pickup_class, pickup_room, pickup_method, quantity, is_available",
     )
     .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Failed to retrieve products:", error.message);
+    if (error.code === "42703" || error.code === "PGRST204") {
+      return Response.json(
+        {
+          message:
+            "The product catalog needs the latest schema. Run supabase/schema.sql in your Supabase project's SQL Editor, then reload this page.",
+        },
+        { status: 503 },
+      );
+    }
     if (error.code === "PGRST205" || error.code === "42P01") {
       return Response.json(
         {
@@ -48,6 +57,9 @@ export async function GET() {
       image: product.image,
       category: product.category,
       fitsFor: product.fits_for,
+      pickupClass: product.pickup_class,
+      pickupRoom: product.pickup_room,
+      pickupMethod: product.pickup_method,
       ...(product.quantity === null ? {} : { quantity: product.quantity }),
       outOfStock: !product.is_available,
     })),

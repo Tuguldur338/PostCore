@@ -3,16 +3,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatMntPrice, parseMntAmount } from "@/components/currency";
-import type { DeliveryAddress } from "@/components/types";
 
 type PurchaseReceipt = {
   id: string;
   order_reference: string;
+  purchaser_name: string;
   product_name: string;
   price: string;
   quantity: number;
   seller_email: string | null;
-  delivery_address: DeliveryAddress;
   status: "new" | "completed";
   created_at: string;
 };
@@ -125,6 +124,12 @@ export function AccountReceipts() {
 
               <dl className="mt-5 grid gap-x-6 gap-y-4 border-t border-slate-200 pt-4 text-sm sm:grid-cols-2">
                 <div>
+                  <dt className="text-slate-500">Purchased by</dt>
+                  <dd className="mt-1 font-medium text-slate-900">
+                    {receipt.purchaser_name}
+                  </dd>
+                </div>
+                <div>
                   <dt className="text-slate-500">Date purchased</dt>
                   <dd className="mt-1 font-medium text-slate-900">
                     {new Date(receipt.created_at).toLocaleString()}
@@ -148,21 +153,6 @@ export function AccountReceipts() {
                     {formatMntPrice(
                       parseMntAmount(receipt.price) * receipt.quantity,
                     )}
-                  </dd>
-                </div>
-                <div className="sm:col-span-2">
-                  <dt className="text-slate-500">Delivery</dt>
-                  <dd className="mt-1 font-medium text-slate-900">
-                    {receipt.delivery_address.recipient}
-                    {receipt.delivery_address.classNumber
-                      ? ` · Class ${receipt.delivery_address.classNumber}`
-                      : ""}
-                    {receipt.delivery_address.roomNumber
-                      ? ` · Room ${receipt.delivery_address.roomNumber}`
-                      : ""}
-                    {receipt.delivery_address.building
-                      ? ` · Floor ${receipt.delivery_address.building}`
-                      : ""}
                   </dd>
                 </div>
               </dl>

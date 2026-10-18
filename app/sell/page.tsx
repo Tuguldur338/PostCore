@@ -11,7 +11,6 @@ import Link from "next/link";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { parseMntAmount } from "@/components/currency";
-import { isValidClassNumber } from "@/components/delivery-validation";
 import { maxProductImageDataUrlLength } from "@/components/product-image";
 import { QuantityInput } from "@/components/quantity-input";
 import type { Product } from "@/components/types";
@@ -26,7 +25,7 @@ type ProductFormState = {
   image: string;
   pickupClass: string;
   pickupRoom: string;
-  deliveryMethod: string;
+  pickupMethod: string;
 };
 
 const maxImageDimension = 1600;
@@ -41,7 +40,7 @@ const emptyProductForm: ProductFormState = {
   image: "",
   pickupClass: "",
   pickupRoom: "",
-  deliveryMethod: "",
+  pickupMethod: "",
 };
 
 function compressImage(source: Blob | string): Promise<string> {
@@ -209,14 +208,6 @@ export default function SellPage() {
       return;
     }
 
-    if (
-      productForm.pickupClass.trim() &&
-      !isValidClassNumber(productForm.pickupClass)
-    ) {
-      setStatus("Enter a pickup class from 1A to 12D, such as 10B.");
-      return;
-    }
-
     isSubmitting.current = true;
     setIsSaving(true);
     if (pendingProductId.current === null) {
@@ -233,31 +224,17 @@ export default function SellPage() {
       image: productForm.image,
       category: productForm.category.trim() || "School Supplies",
       fitsFor: productForm.fitsFor.trim() || "Campus life",
+      pickupClass: productForm.pickupClass.trim(),
+      pickupRoom: productForm.pickupRoom.trim(),
+      pickupMethod: productForm.pickupMethod.trim(),
       quantity,
-    };
-
-    const deliveryNote = [
-      productForm.pickupClass.trim() &&
-        `Pickup class: ${productForm.pickupClass.trim()}`,
-      productForm.pickupRoom.trim() && `Room: ${productForm.pickupRoom.trim()}`,
-      productForm.deliveryMethod.trim() &&
-        `Method: ${productForm.deliveryMethod.trim()}`,
-    ]
-      .filter(Boolean)
-      .join(" | ");
-
-    const productWithDelivery = {
-      ...newProduct,
-      description: deliveryNote
-        ? `${newProduct.description}\n\nDelivery details: ${deliveryNote}`
-        : newProduct.description,
     };
 
     try {
       const response = await fetch("/api/admin/products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(productWithDelivery),
+        body: JSON.stringify(newProduct),
       });
       const result = (await response.json()) as { message?: string };
       if (!response.ok) {
@@ -401,12 +378,13 @@ export default function SellPage() {
                   </p>
                 </label>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-semibold text-slate-700">
-                    Delivery details
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Pickup details
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Let buyers know which class and room to find you in.
+                  <p className="mt-1 text-xs leading-5 text-slate-600">
+                    Buyers use these details to arrange collection with you.
+                    Don&apos;t enter a home address or other private location.
                   </p>
                   <div className="mt-4 grid gap-4 md:grid-cols-3">
                     <input
@@ -415,7 +393,7 @@ export default function SellPage() {
                         handleInputChange("pickupClass", event.target.value)
                       }
                       className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                      placeholder="Your class (e.g. 10B)"
+                      placeholder="Pickup class (e.g. 10B)"
                       pattern="\s*(?:[1-9]|1[0-2])[A-Da-d]\s*"
                       title="Enter a class from 1A to 12D, such as 10B."
                     />
@@ -425,15 +403,16 @@ export default function SellPage() {
                         handleInputChange("pickupRoom", event.target.value)
                       }
                       className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                      placeholder="Room number (e.g. 204)"
+                      placeholder="Pickup room (optional)"
                     />
                     <input
-                      value={productForm.deliveryMethod}
+                      value={productForm.pickupMethod}
                       onChange={(event) =>
-                        handleInputChange("deliveryMethod", event.target.value)
+                        handleInputChange("pickupMethod", event.target.value)
                       }
                       className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                      placeholder="Hand-off / locker / pickup"
+                      placeholder="Where/how to meet (optional)"
+                      maxLength={160}
                     />
                   </div>
                 </div>

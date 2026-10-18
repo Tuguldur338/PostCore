@@ -2,20 +2,6 @@ import type { User } from "./types";
 
 const usersStorageKey = "postcore-users";
 
-function isDeliveryAddress(
-  value: unknown,
-): value is NonNullable<User["deliveryAddress"]> {
-  if (!value || typeof value !== "object") return false;
-  const address = value as Record<string, unknown>;
-  return (
-    typeof address.recipient === "string" &&
-    typeof address.classNumber === "string" &&
-    typeof address.roomNumber === "string" &&
-    typeof address.building === "string" &&
-    typeof address.instructions === "string"
-  );
-}
-
 function sanitizeUser(value: unknown): User | null {
   if (!value || typeof value !== "object") return null;
   const saved = value as Record<string, unknown>;
@@ -33,9 +19,6 @@ function sanitizeUser(value: unknown): User | null {
     email: saved.email,
     role: "student",
     ...(typeof saved.image === "string" ? { image: saved.image } : {}),
-    ...(isDeliveryAddress(saved.deliveryAddress)
-      ? { deliveryAddress: saved.deliveryAddress }
-      : {}),
   };
 }
 
@@ -58,13 +41,12 @@ export function readUsers(): User[] {
 
 export function writeUsers(users: User[]) {
   if (typeof window === "undefined") return;
-  const profileOnlyUsers = users.map(({ id, name, email, role, image, deliveryAddress }) => ({
+  const profileOnlyUsers = users.map(({ id, name, email, role, image }) => ({
     id,
     name,
     email,
     role,
     ...(image ? { image } : {}),
-    ...(deliveryAddress ? { deliveryAddress } : {}),
   }));
   window.localStorage.setItem(usersStorageKey, JSON.stringify(profileOnlyUsers));
 }

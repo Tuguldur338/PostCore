@@ -187,6 +187,15 @@ create table if not exists public.products (
     check (char_length(btrim(category)) between 1 and 80),
   fits_for text not null
     check (char_length(btrim(fits_for)) between 1 and 200),
+  pickup_class text not null default ''
+    check (
+      pickup_class = ''
+      or pickup_class ~* '^(?:[1-9]|1[0-2])[A-D]$'
+    ),
+  pickup_room text not null default ''
+    check (char_length(pickup_room) <= 100),
+  pickup_method text not null default ''
+    check (char_length(pickup_method) <= 160),
   seller_email text
     check (seller_email is null or char_length(seller_email) <= 320),
   quantity integer
@@ -200,6 +209,30 @@ alter table public.products
 alter table public.products
   add constraint products_image_check
   check (char_length(btrim(image)) between 1 and 1000000);
+alter table public.products
+  add column if not exists pickup_class text not null default '';
+alter table public.products
+  add column if not exists pickup_room text not null default '';
+alter table public.products
+  add column if not exists pickup_method text not null default '';
+alter table public.products
+  drop constraint if exists products_pickup_class_check;
+alter table public.products
+  add constraint products_pickup_class_check
+  check (
+    pickup_class = ''
+    or pickup_class ~* '^(?:[1-9]|1[0-2])[A-D]$'
+  );
+alter table public.products
+  drop constraint if exists products_pickup_room_check;
+alter table public.products
+  add constraint products_pickup_room_check
+  check (char_length(pickup_room) <= 100);
+alter table public.products
+  drop constraint if exists products_pickup_method_check;
+alter table public.products
+  add constraint products_pickup_method_check
+  check (char_length(pickup_method) <= 160);
 
 insert into public.products (
   id, name, price, badge, description, image, category, fits_for, quantity
@@ -232,8 +265,8 @@ on conflict (id) do nothing;
 alter table public.products enable row level security;
 revoke all on public.products from public, anon, authenticated;
 grant select (
-  id, name, price, badge, description, image, category, fits_for, quantity,
-  is_available, created_at
+  id, name, price, badge, description, image, category, fits_for,
+  pickup_class, pickup_room, pickup_method, quantity, is_available, created_at
 ) on public.products to anon, authenticated;
 grant insert, update, delete on public.products to authenticated;
 
@@ -284,31 +317,6 @@ create table if not exists public.orders (
     check (quantity > 0),
   seller_email text
     check (seller_email is null or char_length(seller_email) <= 320),
-  delivery_address jsonb not null
-    check (
-      delivery_address ?& array[
-        'recipient',
-        'classNumber',
-        'roomNumber',
-        'building',
-        'instructions'
-      ]
-      and jsonb_typeof(delivery_address) = 'object'
-      and jsonb_typeof(delivery_address -> 'recipient') = 'string'
-      and char_length(btrim(delivery_address ->> 'recipient')) between 1 and 200
-      and jsonb_typeof(delivery_address -> 'classNumber') = 'string'
-      and (delivery_address ->> 'classNumber') ~* '^(?:[1-9]|1[0-2])[A-D]$'
-      and jsonb_typeof(delivery_address -> 'roomNumber') = 'string'
-      and char_length(delivery_address ->> 'roomNumber') <= 100
-      and jsonb_typeof(delivery_address -> 'building') = 'string'
-      and (delivery_address ->> 'building') in ('', '1', '2', '3', '4')
-      and jsonb_typeof(delivery_address -> 'instructions') = 'string'
-      and char_length(delivery_address ->> 'instructions') <= 1000
-      and (
-        char_length(btrim(delivery_address ->> 'roomNumber')) > 0
-        or char_length(btrim(delivery_address ->> 'building')) > 0
-      )
-    ),
   status text not null default 'new'
     check (status in ('new', 'completed')),
   created_at timestamptz not null default now()
@@ -323,6 +331,12 @@ alter table public.orders
 alter table public.orders
   add column if not exists buyer_id uuid
     references auth.users(id) on delete set null;
+alter table public.orders
+  drop column if exists delivery_address;
+
+update public.products
+set description = rtrim(split_part(description, E'\n\nDelivery details:', 1))
+where position(E'\n\nDelivery details:' in description) > 0;
 
 alter table public.orders enable row level security;
 revoke all on public.orders from public, anon, authenticated;
@@ -360,11 +374,11 @@ create policy "Marketing admin can delete orders"
   );
 
 drop function if exists public.place_order(text, integer, jsonb, text);
+drop function if exists public.place_order(text, integer, jsonb, text, uuid);
 
 create or replace function public.place_order(
   p_product_id text,
   p_quantity integer,
-  p_delivery_address jsonb,
   p_order_reference text,
   p_buyer_id uuid
 )
@@ -417,8 +431,7 @@ begin
     product_name,
     price,
     quantity,
-    seller_email,
-    delivery_address
+    seller_email
   )
   values (
     p_order_reference,
@@ -427,8 +440,7 @@ begin
     selected_product.name,
     selected_product.price,
     p_quantity,
-    selected_product.seller_email,
-    p_delivery_address
+    selected_product.seller_email
   )
   returning * into saved_order;
 
@@ -439,7 +451,7 @@ begin
 end;
 $$;
 
-revoke all on function public.place_order(text, integer, jsonb, text, uuid)
+revoke all on function public.place_order(text, integer, text, uuid)
   from public, anon, authenticated;
-grant execute on function public.place_order(text, integer, jsonb, text, uuid)
+grant execute on function public.place_order(text, integer, text, uuid)
   to authenticated;

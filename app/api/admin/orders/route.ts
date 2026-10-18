@@ -15,7 +15,7 @@ export async function GET() {
   const { data, error } = await client
     .from("orders")
     .select(
-      "id, order_reference, product_name, price, quantity, seller_email, delivery_address, status, created_at",
+      "id, order_reference, buyer_id, product_name, price, quantity, seller_email, status, created_at",
     )
     .order("created_at", { ascending: false });
 
@@ -27,7 +27,42 @@ export async function GET() {
     );
   }
 
-  return Response.json({ orders: data, role });
+  const buyerIds = [
+    ...new Set(
+      data
+        .map((order) => order.buyer_id)
+        .filter((buyerId): buyerId is string => buyerId !== null),
+    ),
+  ];
+  let buyerEmailById = new Map<string, string>();
+
+  if (buyerIds.length > 0) {
+    const { data: profiles, error: profilesError } = await client
+      .from("marketplace_profiles")
+      .select("user_id, email")
+      .in("user_id", buyerIds);
+
+    if (profilesError) {
+      console.error("Failed to retrieve purchase request buyers:", profilesError.message);
+      return Response.json(
+        { message: "Order buyer details could not be loaded." },
+        { status: 500 },
+      );
+    }
+    buyerEmailById = new Map(
+      profiles.map((profile) => [profile.user_id, profile.email]),
+    );
+  }
+
+  return Response.json({
+    orders: data.map((order) => ({
+      ...order,
+      buyer_email: order.buyer_id
+        ? (buyerEmailById.get(order.buyer_id) ?? null)
+        : null,
+    })),
+    role,
+  });
 }
 
 export async function PATCH(request: Request) {

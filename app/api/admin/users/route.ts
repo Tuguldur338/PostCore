@@ -76,6 +76,13 @@ export async function PATCH(request: Request) {
     );
   }
 
+  if (role !== "admin" && body.role === "admin") {
+    return Response.json(
+      { message: "Only ADMINs can assign the ADMIN badge." },
+      { status: 403 },
+    );
+  }
+
   const { data, error } = await client
     .from("marketplace_profiles")
     .update({ role: body.role })

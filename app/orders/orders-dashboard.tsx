@@ -545,9 +545,9 @@ export function OrdersDashboard() {
             Marketplace account badges
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Assign Student, Marketplace Admin, or ADMIN badges to other
-            registered accounts. The primary ADMIN account is protected from
-            badge changes.
+            Assign badges to other registered accounts. Only ADMINs can assign
+            the ADMIN badge; the primary ADMIN account is protected from badge
+            changes.
           </p>
           {accounts.length ? (
             <div className="mt-5 grid gap-3">
@@ -572,7 +572,8 @@ export function OrdersDashboard() {
                         disabled={
                           busyUserId === account.user_id ||
                           account.email.toLowerCase() ===
-                            "tuguldur09252@gmail.com"
+                            "tuguldur09252@gmail.com" ||
+                          (role !== "admin" && account.role === "admin")
                         }
                         onChange={(event) => {
                           const nextRole = event.currentTarget.value;
@@ -586,7 +587,9 @@ export function OrdersDashboard() {
                         <option value="marketplace_admin">
                           Marketplace Admin
                         </option>
-                        <option value="admin">ADMIN</option>
+                        <option value="admin" disabled={role !== "admin"}>
+                          ADMIN
+                        </option>
                       </select>
                       <svg
                         aria-hidden="true"

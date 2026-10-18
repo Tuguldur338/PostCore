@@ -266,7 +266,6 @@ export function Storefront() {
           password: form.password,
           options: {
             data: { full_name: form.name.trim() },
-            emailRedirectTo: `${window.location.origin}/`,
           },
         });
         if (error) throw error;
@@ -341,7 +340,6 @@ export function Storefront() {
       const { error } = await createSupabaseBrowserClient().auth.resend({
         type: "signup",
         email,
-        options: { emailRedirectTo: `${window.location.origin}/` },
       });
       if (error) throw error;
       setStatus(

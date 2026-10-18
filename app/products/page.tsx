@@ -138,6 +138,15 @@ export default function ProductsPage() {
               );
             });
           }}
+          onStockChanged={() => {
+            void reloadProducts().catch((loadError: unknown) => {
+              setStatus(
+                loadError instanceof Error
+                  ? loadError.message
+                  : "The catalog could not be refreshed.",
+              );
+            });
+          }}
         />
         <Footer />
       </main>

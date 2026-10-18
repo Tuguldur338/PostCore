@@ -353,18 +353,22 @@ export default function SellPage() {
                   className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
                   placeholder="Item name"
                 />
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  inputMode="numeric"
-                  value={productForm.price}
-                  onChange={(event) =>
-                    handleInputChange("price", event.target.value)
-                  }
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                  placeholder="Price in MNT (₮)"
-                />
+                <div className="grid gap-2">
+                  <label
+                    htmlFor="listing-price"
+                    className="text-sm font-semibold text-slate-700"
+                  >
+                    Price (MNT)
+                  </label>
+                  <QuantityInput
+                    id="listing-price"
+                    min={1}
+                    value={productForm.price}
+                    onChange={(value) => handleInputChange("price", value)}
+                    disabled={isSaving}
+                    ariaLabel="Price in MNT"
+                  />
+                </div>
                 <div className="grid gap-2">
                   <label
                     htmlFor="listing-quantity"

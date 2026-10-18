@@ -110,6 +110,7 @@ type CatalogProps = {
   onQuantityChange?: (productId: string, quantity: number) => void;
   onProductRemoved?: (productId: string) => void;
   onPurchaseSuccess?: (productId: string, quantity: number) => void;
+  onStockChanged?: () => void;
 };
 
 export function Catalog({
@@ -122,6 +123,7 @@ export function Catalog({
   onQuantityChange,
   onProductRemoved,
   onPurchaseSuccess,
+  onStockChanged,
 }: CatalogProps) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
@@ -579,6 +581,7 @@ export function Catalog({
           product={checkoutProduct}
           onClose={() => setCheckoutProduct(null)}
           onPurchaseSuccess={onPurchaseSuccess}
+          onStockChanged={onStockChanged}
         />
       ) : null}
     </div>

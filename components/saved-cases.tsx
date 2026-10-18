@@ -52,6 +52,17 @@ export function SavedItems() {
               );
             });
         }}
+        onStockChanged={() => {
+          void fetchSharedProducts()
+            .then(setProducts)
+            .catch((loadError: unknown) => {
+              setError(
+                loadError instanceof Error
+                  ? loadError.message
+                  : "The product catalog could not be refreshed.",
+              );
+            });
+        }}
       />
     </>
   );

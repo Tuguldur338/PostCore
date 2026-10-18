@@ -236,13 +236,20 @@ export async function POST(request: Request) {
     }
     if (error.message.includes("INSUFFICIENT_STOCK")) {
       return Response.json(
-        { message: "There is not enough stock for that quantity. Refresh the catalog and try again." },
+        {
+          code: "INSUFFICIENT_STOCK",
+          message:
+            "The stock changed while you were checking out. That quantity is no longer available; refresh the catalog and choose a smaller amount.",
+        },
         { status: 409 },
       );
     }
     if (error.message.includes("PRODUCT_UNAVAILABLE")) {
       return Response.json(
-        { message: "This product is currently unavailable." },
+        {
+          code: "PRODUCT_UNAVAILABLE",
+          message: "This item has sold out and is no longer available.",
+        },
         { status: 409 },
       );
     }

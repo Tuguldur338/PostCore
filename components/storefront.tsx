@@ -482,6 +482,20 @@ export function Storefront() {
                   );
                 });
             }}
+            onStockChanged={() => {
+              void fetchSharedProducts()
+                .then((sharedProducts) => {
+                  setProducts(sharedProducts);
+                  setHasSellerProducts(sharedProducts.length > 0);
+                })
+                .catch((loadError: unknown) => {
+                  setCatalogError(
+                    loadError instanceof Error
+                      ? loadError.message
+                      : "The product catalog could not be refreshed.",
+                  );
+                });
+            }}
           />
         </div>
 

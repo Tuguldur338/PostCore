@@ -25,12 +25,13 @@ export function QuantityInput({
 }: QuantityInputProps) {
   const parsedValue = value === "" ? Number.NaN : Number(value);
   const currentValue = Number.isSafeInteger(parsedValue) ? parsedValue : min;
-  const atMinimum = value !== "" && currentValue <= min;
+  const atMinimum = value === "" || currentValue <= min;
   const atMaximum =
     max !== undefined && value !== "" && currentValue >= max;
 
   const adjust = (amount: number) => {
-    const nextValue = Math.max(min, currentValue + amount);
+    const startingValue = value === "" && amount > 0 ? min - 1 : currentValue;
+    const nextValue = Math.max(min, startingValue + amount);
     const adjustedValue =
       max === undefined ? nextValue : Math.min(max, nextValue);
     onChange(String(adjustedValue));

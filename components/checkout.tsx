@@ -18,6 +18,7 @@ const emptyDeliveryAddress: DeliveryAddress = {
 };
 
 type OrderSubmissionResponse = {
+  code?: string;
   message?: string;
   orderReference?: string;
   purchasedAt?: string;
@@ -27,12 +28,14 @@ type CheckoutDialogProps = {
   product: Product;
   onClose: () => void;
   onPurchaseSuccess?: (productId: string, quantity: number) => void;
+  onStockChanged?: () => void;
 };
 
 export function CheckoutDialog({
   product,
   onClose,
   onPurchaseSuccess,
+  onStockChanged,
 }: CheckoutDialogProps) {
   const [deliveryAddress, setDeliveryAddress] =
     useState<DeliveryAddress>(emptyDeliveryAddress);
@@ -78,13 +81,25 @@ export function CheckoutDialog({
     }
 
     const requestedQuantity = Number(quantity);
+    if (product.outOfStock || product.quantity === 0) {
+      setError("This item has sold out and is no longer available.");
+      onStockChanged?.();
+      return;
+    }
     if (
       !Number.isSafeInteger(requestedQuantity) ||
       requestedQuantity < 1 ||
       requestedQuantity > 2_147_483_647 ||
       (product.quantity !== undefined && requestedQuantity > product.quantity)
     ) {
-      setError("Enter a valid quantity that is currently in stock.");
+      setError(
+        product.quantity !== undefined &&
+          requestedQuantity > product.quantity
+          ? `Only ${product.quantity} ${
+              product.quantity === 1 ? "item remains" : "items remain"
+            } in stock. Lower the quantity and try again.`
+          : "Enter a valid quantity that is currently in stock.",
+      );
       return;
     }
 
@@ -101,6 +116,12 @@ export function CheckoutDialog({
       });
       const result = (await response.json()) as OrderSubmissionResponse;
       if (!response.ok || !result.orderReference || !result.purchasedAt) {
+        if (
+          result.code === "INSUFFICIENT_STOCK" ||
+          result.code === "PRODUCT_UNAVAILABLE"
+        ) {
+          onStockChanged?.();
+        }
         throw new Error(result.message ?? "The order could not be saved.");
       }
 

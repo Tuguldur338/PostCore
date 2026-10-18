@@ -54,6 +54,7 @@ export function OrdersDashboard() {
   const [password, setPassword] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [accounts, setAccounts] = useState<MarketplaceAccount[]>([]);
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
   const [role, setRole] = useState<"admin" | "marketplace_admin" | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -242,10 +243,6 @@ export function OrdersDashboard() {
   };
 
   const deleteOrder = async (order: Order) => {
-    if (!window.confirm(`Delete order ${order.order_reference}? This cannot be undone.`)) {
-      return;
-    }
-
     setError("");
     setBusyOrderId(order.id);
     try {
@@ -259,6 +256,7 @@ export function OrdersDashboard() {
         throw new Error(result.message ?? "Order could not be deleted.");
       }
       setOrders((current) => current.filter((item) => item.id !== order.id));
+      setOrderToDelete(null);
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
@@ -398,7 +396,7 @@ export function OrdersDashboard() {
                   <button
                     type="button"
                     disabled={busyOrderId === order.id}
-                    onClick={() => void deleteOrder(order)}
+                    onClick={() => setOrderToDelete(order)}
                     className="rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
                   >
                     Delete
@@ -490,29 +488,45 @@ export function OrdersDashboard() {
                       {account.email}
                     </p>
                   </div>
-                  <label className="grid gap-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <label className="grid w-full gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:w-56">
                     Badge
-                    <select
-                      value={account.role}
-                      disabled={
-                        busyUserId === account.user_id ||
-                        account.email.toLowerCase() ===
-                          "tuguldur09252@gmail.com"
-                      }
-                      onChange={(event) => {
-                        const nextRole = event.currentTarget.value;
-                        if (isMarketplaceRole(nextRole)) {
-                          void updateRole(account, nextRole);
+                    <span className="relative">
+                      <select
+                        value={account.role}
+                        disabled={
+                          busyUserId === account.user_id ||
+                          account.email.toLowerCase() ===
+                            "tuguldur09252@gmail.com"
                         }
-                      }}
-                      className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold normal-case tracking-normal text-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <option value="student">Student</option>
-                      <option value="marketplace_admin">
-                        Marketplace Admin
-                      </option>
-                      <option value="admin">ADMIN</option>
-                    </select>
+                        onChange={(event) => {
+                          const nextRole = event.currentTarget.value;
+                          if (isMarketplaceRole(nextRole)) {
+                            void updateRole(account, nextRole);
+                          }
+                        }}
+                        className="h-12 w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-11 text-sm font-semibold normal-case tracking-normal text-slate-800 shadow-sm outline-none transition hover:border-orange-300 focus:border-orange-500 focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70"
+                      >
+                        <option value="student">Student</option>
+                        <option value="marketplace_admin">
+                          Marketplace Admin
+                        </option>
+                        <option value="admin">ADMIN</option>
+                      </select>
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500"
+                      >
+                        <path
+                          d="m6 8 4 4 4-4"
+                          stroke="currentColor"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="1.8"
+                        />
+                      </svg>
+                    </span>
                   </label>
                 </div>
               ))}
@@ -523,6 +537,109 @@ export function OrdersDashboard() {
             </p>
           )}
         </section>
+      ) : null}
+
+      {orderToDelete ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              busyOrderId !== orderToDelete.id
+            ) {
+              setOrderToDelete(null);
+            }
+          }}
+        >
+          <section
+            className="w-full max-w-md overflow-hidden rounded-[2rem] border border-rose-100 bg-white shadow-[0_30px_100px_-25px_rgba(15,23,42,0.75)]"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-order-title"
+            aria-describedby="delete-order-description"
+          >
+            <div className="relative overflow-hidden bg-gradient-to-br from-rose-700 via-rose-600 to-orange-500 px-6 pb-7 pt-6 text-white">
+              <div
+                aria-hidden="true"
+                className="absolute -right-8 -top-12 h-40 w-40 rounded-full border-[24px] border-white/10"
+              />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/25 bg-white/15 shadow-inner">
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="h-7 w-7"
+                  >
+                    <path
+                      d="M12 8v5m0 3h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 3.75c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3Z"
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="1.8"
+                    />
+                  </svg>
+                </div>
+                <span className="rounded-full border border-white/25 bg-black/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em]">
+                  Permanent action
+                </span>
+              </div>
+              <h2
+                id="delete-order-title"
+                className="relative mt-5 text-2xl font-bold tracking-tight"
+              >
+                Delete this order?
+              </h2>
+              <p
+                id="delete-order-description"
+                className="relative mt-2 text-sm leading-6 text-white/90"
+              >
+                This purchase request will be permanently removed and cannot be
+                restored.
+              </p>
+            </div>
+
+            <div className="p-6">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  Order {orderToDelete.order_reference}
+                </p>
+                <p className="mt-1 font-semibold text-slate-900">
+                  {orderToDelete.product_name}
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-600">
+                  {formatMntPrice(
+                    parseMntAmount(orderToDelete.price) *
+                      orderToDelete.quantity,
+                  )}{" "}
+                  · Quantity: {orderToDelete.quantity}
+                </p>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  disabled={busyOrderId === orderToDelete.id}
+                  onClick={() => setOrderToDelete(null)}
+                  className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Keep order
+                </button>
+                <button
+                  type="button"
+                  disabled={busyOrderId === orderToDelete.id}
+                  onClick={() => void deleteOrder(orderToDelete)}
+                  className="rounded-full bg-gradient-to-r from-rose-700 to-rose-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-rose-900/20 transition-all hover:-translate-y-0.5 hover:from-rose-800 hover:to-rose-700 hover:shadow-xl disabled:cursor-wait disabled:opacity-60 disabled:hover:translate-y-0"
+                >
+                  {busyOrderId === orderToDelete.id
+                    ? "Deleting order..."
+                    : "Yes, delete order"}
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       ) : null}
     </section>
   );

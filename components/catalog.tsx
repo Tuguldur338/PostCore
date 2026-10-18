@@ -222,9 +222,9 @@ export function Catalog({
       products.filter(
         (product) =>
           !removedProductIds.includes(product.id) &&
-          (canRemoveProducts || !isUnavailable(product)),
+          (canManageListings || !isUnavailable(product)),
       ),
-    [canRemoveProducts, products, removedProductIds],
+    [canManageListings, products, removedProductIds],
   );
   const categories = useMemo(
     () => ["All", ...new Set(catalogProducts.map((product) => product.category))],

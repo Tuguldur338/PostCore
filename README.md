@@ -62,4 +62,4 @@ The latest `supabase/schema.sql` creates shared marketplace profiles and assigns
 
 ## Admin and selling
 
-Products and inventory are shared through Supabase. Existing browser-local listings are imported the first time the marketing admin opens `/sell` in the browser that contains those listings. Authentication is shared through Supabase; profile pictures and delivery details remain cached in the browser. To apply later schema changes, run the updated `supabase/schema.sql` again in the Supabase SQL Editor; its table, policy, and function setup is safe to rerun.
+Products and inventory are shared through Supabase. Listings are added explicitly on `/sell`; opening the page does not import stale browser-local listings, so deleted listings cannot be recreated from old local data. Authentication is shared through Supabase; profile pictures and delivery details remain cached in the browser. To apply later schema changes, run the updated `supabase/schema.sql` again in the Supabase SQL Editor; its table, policy, and function setup is safe to rerun.

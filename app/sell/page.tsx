@@ -12,7 +12,6 @@ import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { parseMntAmount } from "@/components/currency";
 import { isValidClassNumber } from "@/components/delivery-validation";
-import { readProducts } from "@/components/product-store";
 import { QuantityInput } from "@/components/quantity-input";
 import type { Product } from "@/components/types";
 
@@ -31,9 +30,6 @@ type ProductFormState = {
 
 const maxImageDimension = 1280;
 const maxImageDataUrlLength = 220_000;
-const legacyImportStorageKey = "postcore-shared-products-imported";
-const uuidPattern =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const emptyProductForm: ProductFormState = {
   name: "",
@@ -117,7 +113,7 @@ export default function SellPage() {
 
   useEffect(() => {
     let isActive = true;
-    const verifyAdminAndImportLegacyProducts = async () => {
+    const verifyAdmin = async () => {
       try {
         const response = await fetch("/api/admin/products", {
           cache: "no-store",
@@ -135,38 +131,6 @@ export default function SellPage() {
 
         if (!isActive) return;
         setIsAdmin(true);
-
-        if (window.localStorage.getItem(legacyImportStorageKey) === "true") {
-          return;
-        }
-        const legacyProducts = readProducts().filter((product) =>
-          uuidPattern.test(product.id),
-        );
-        for (const legacyProduct of legacyProducts) {
-          const image = legacyProduct.image.startsWith("data:")
-            ? await compressImage(legacyProduct.image)
-            : legacyProduct.image;
-          const importResponse = await fetch("/api/admin/products", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...legacyProduct, image }),
-          });
-          const importResult = (await importResponse.json()) as {
-            message?: string;
-          };
-          if (!importResponse.ok) {
-            throw new Error(
-              importResult.message ??
-                "An existing listing could not be imported.",
-            );
-          }
-        }
-        window.localStorage.setItem(legacyImportStorageKey, "true");
-        if (legacyProducts.length > 0 && isActive) {
-          setStatus(
-            `${legacyProducts.length} listing${legacyProducts.length === 1 ? "" : "s"} from this browser are now shared.`,
-          );
-        }
       } catch (error) {
         if (isActive) {
           setStatus(
@@ -180,7 +144,7 @@ export default function SellPage() {
       }
     };
 
-    void verifyAdminAndImportLegacyProducts();
+    void verifyAdmin();
     return () => {
       isActive = false;
     };
@@ -218,7 +182,9 @@ export default function SellPage() {
     if (isSubmitting.current) return;
 
     if (!isAdmin) {
-      setStatus("Sign in with the marketing admin account before adding listings.");
+      setStatus(
+        "Sign in with the marketing admin account before adding listings.",
+      );
       return;
     }
 
@@ -344,144 +310,145 @@ export default function SellPage() {
           ) : (
             <form onSubmit={handleSubmit}>
               <fieldset disabled={isSaving} className="mt-6 space-y-4">
-              <div className="grid gap-4 md:grid-cols-3">
-                <input
-                  value={productForm.name}
+                <div className="grid gap-4 md:grid-cols-3">
+                  <input
+                    value={productForm.name}
+                    onChange={(event) =>
+                      handleInputChange("name", event.target.value)
+                    }
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                    placeholder="Item name"
+                  />
+                  <div className="grid gap-2">
+                    <label
+                      htmlFor="listing-price"
+                      className="text-sm font-semibold text-slate-700"
+                    >
+                      Price (MNT)
+                    </label>
+                    <QuantityInput
+                      id="listing-price"
+                      min={1}
+                      value={productForm.price}
+                      onChange={(value) => handleInputChange("price", value)}
+                      disabled={isSaving}
+                      ariaLabel="Price in MNT"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <label
+                      htmlFor="listing-quantity"
+                      className="text-sm font-semibold text-slate-700"
+                    >
+                      Quantity
+                    </label>
+                    <QuantityInput
+                      id="listing-quantity"
+                      min={1}
+                      value={productForm.quantity}
+                      onChange={(value) => handleInputChange("quantity", value)}
+                      disabled={isSaving}
+                      ariaLabel="Listing quantity"
+                    />
+                  </div>
+                </div>
+
+                <textarea
+                  value={productForm.description}
                   onChange={(event) =>
-                    handleInputChange("name", event.target.value)
+                    handleInputChange("description", event.target.value)
                   }
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                  placeholder="Item name"
+                  className="min-h-[110px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                  placeholder="Describe the item"
                 />
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="listing-price"
-                    className="text-sm font-semibold text-slate-700"
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <input
+                    value={productForm.category}
+                    onChange={(event) =>
+                      handleInputChange("category", event.target.value)
+                    }
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                    placeholder="Category"
+                  />
+                  <input
+                    value={productForm.fitsFor}
+                    onChange={(event) =>
+                      handleInputChange("fitsFor", event.target.value)
+                    }
+                    className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
+                    placeholder="Fits for"
+                  />
+                </div>
+
+                <label className="block rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                  <span className="mb-2 block font-semibold text-slate-700">
+                    Upload product image
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="w-full text-sm"
+                    disabled={isCompressingImage || isSaving}
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    A photo is required. Large photos are optimized before
+                    saving.
+                  </p>
+                </label>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-700">
+                    Delivery details
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Let buyers know which class and room to find you in.
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-3">
+                    <input
+                      value={productForm.pickupClass}
+                      onChange={(event) =>
+                        handleInputChange("pickupClass", event.target.value)
+                      }
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
+                      placeholder="Your class (e.g. 10B)"
+                      pattern="\s*(?:[1-9]|1[0-2])[A-Da-d]\s*"
+                      title="Enter a class from 1A to 12D, such as 10B."
+                    />
+                    <input
+                      value={productForm.pickupRoom}
+                      onChange={(event) =>
+                        handleInputChange("pickupRoom", event.target.value)
+                      }
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
+                      placeholder="Room number (e.g. 204)"
+                    />
+                    <input
+                      value={productForm.deliveryMethod}
+                      onChange={(event) =>
+                        handleInputChange("deliveryMethod", event.target.value)
+                      }
+                      className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
+                      placeholder="Hand-off / locker / pickup"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-slate-600">{status}</p>
+                  <button
+                    type="submit"
+                    disabled={!isAdmin || isCompressingImage || isSaving}
+                    className="smooth-transition rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-out hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
                   >
-                    Price (MNT)
-                  </label>
-                  <QuantityInput
-                    id="listing-price"
-                    min={1}
-                    value={productForm.price}
-                    onChange={(value) => handleInputChange("price", value)}
-                    disabled={isSaving}
-                    ariaLabel="Price in MNT"
-                  />
+                    {isCompressingImage
+                      ? "Optimizing photo..."
+                      : isSaving
+                        ? "Saving..."
+                        : "Add product"}
+                  </button>
                 </div>
-                <div className="grid gap-2">
-                  <label
-                    htmlFor="listing-quantity"
-                    className="text-sm font-semibold text-slate-700"
-                  >
-                    Quantity
-                  </label>
-                  <QuantityInput
-                    id="listing-quantity"
-                    min={1}
-                    value={productForm.quantity}
-                    onChange={(value) => handleInputChange("quantity", value)}
-                    disabled={isSaving}
-                    ariaLabel="Listing quantity"
-                  />
-                </div>
-              </div>
-
-              <textarea
-                value={productForm.description}
-                onChange={(event) =>
-                  handleInputChange("description", event.target.value)
-                }
-                className="min-h-[110px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                placeholder="Describe the item"
-              />
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <input
-                  value={productForm.category}
-                  onChange={(event) =>
-                    handleInputChange("category", event.target.value)
-                  }
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                  placeholder="Category"
-                />
-                <input
-                  value={productForm.fitsFor}
-                  onChange={(event) =>
-                    handleInputChange("fitsFor", event.target.value)
-                  }
-                  className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
-                  placeholder="Fits for"
-                />
-              </div>
-
-              <label className="block rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-                <span className="mb-2 block font-semibold text-slate-700">
-                  Upload product image
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="w-full text-sm"
-                  disabled={isCompressingImage || isSaving}
-                />
-                <p className="mt-2 text-xs text-slate-500">
-                  A photo is required. Large photos are optimized before saving.
-                </p>
-              </label>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-sm font-semibold text-slate-700">
-                  Delivery details
-                </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Let buyers know which class and room to find you in.
-                </p>
-                <div className="mt-4 grid gap-4 md:grid-cols-3">
-                  <input
-                    value={productForm.pickupClass}
-                    onChange={(event) =>
-                      handleInputChange("pickupClass", event.target.value)
-                    }
-                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                    placeholder="Your class (e.g. 10B)"
-                    pattern="\s*(?:[1-9]|1[0-2])[A-Da-d]\s*"
-                    title="Enter a class from 1A to 12D, such as 10B."
-                  />
-                  <input
-                    value={productForm.pickupRoom}
-                    onChange={(event) =>
-                      handleInputChange("pickupRoom", event.target.value)
-                    }
-                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                    placeholder="Room number (e.g. 204)"
-                  />
-                  <input
-                    value={productForm.deliveryMethod}
-                    onChange={(event) =>
-                      handleInputChange("deliveryMethod", event.target.value)
-                    }
-                    className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none"
-                    placeholder="Hand-off / locker / pickup"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-slate-600">{status}</p>
-                <button
-                  type="submit"
-                  disabled={!isAdmin || isCompressingImage || isSaving}
-                  className="smooth-transition rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors duration-200 ease-out hover:bg-orange-400 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {isCompressingImage
-                    ? "Optimizing photo..."
-                    : isSaving
-                      ? "Saving..."
-                      : "Add product"}
-                </button>
-              </div>
               </fieldset>
             </form>
           )}

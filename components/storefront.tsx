@@ -468,6 +468,15 @@ export function Storefront() {
           <Catalog
             products={products}
             showProductCards={hasSellerProducts}
+            onProductRemoved={(productId) => {
+              const remainingProducts = products.filter(
+                (product) => product.id !== productId,
+              );
+              setProducts(remainingProducts);
+              setHasSellerProducts(remainingProducts.some(
+                (product) => !product.outOfStock && product.quantity !== 0,
+              ));
+            }}
             onPurchaseSuccess={() => {
               void fetchSharedProducts()
                 .then((sharedProducts) => {

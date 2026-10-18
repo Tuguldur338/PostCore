@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AccountPassword } from "@/components/account-password";
 import { AccountReceipts } from "@/components/account-receipts";
 import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
@@ -10,6 +11,8 @@ export default function AccountPage() {
         <Header />
 
         <AccountReceipts />
+
+        <AccountPassword />
 
         <Link
           href="/"

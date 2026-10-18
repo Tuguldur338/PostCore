@@ -112,6 +112,18 @@ export async function POST(request: Request) {
 
   if (error) {
     console.error("Failed to create product:", error.message);
+    if (
+      error.code === "23514" &&
+      error.message.includes("products_image_check")
+    ) {
+      return Response.json(
+        {
+          message:
+            "Supabase is still using the old product photo-size limit. Run the latest supabase/schema.sql in your Supabase SQL Editor, then try adding the product again.",
+        },
+        { status: 503 },
+      );
+    }
     return Response.json({ message: "The product could not be saved." }, { status: 500 });
   }
 

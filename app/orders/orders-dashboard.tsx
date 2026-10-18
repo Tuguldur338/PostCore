@@ -43,15 +43,14 @@ type MarketplaceAccount = {
 
 function isMarketplaceRole(value: string): value is MarketplaceRole {
   return (
-    value === "student" ||
-    value === "marketplace_admin" ||
-    value === "admin"
+    value === "student" || value === "marketplace_admin" || value === "admin"
   );
 }
 
 export function OrdersDashboard() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [orderCodeSearch, setOrderCodeSearch] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [accounts, setAccounts] = useState<MarketplaceAccount[]>([]);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
@@ -62,6 +61,12 @@ export function OrdersDashboard() {
   const [busyUserId, setBusyUserId] = useState("");
   const [error, setError] = useState("");
   const supabaseConfigured = Boolean(getSupabaseConfig());
+  const normalizedOrderCodeSearch = orderCodeSearch.trim().toUpperCase();
+  const matchingOrders = normalizedOrderCodeSearch
+    ? orders.filter((order) =>
+        order.order_reference.toUpperCase().includes(normalizedOrderCodeSearch),
+      )
+    : orders;
 
   const loadOrders = async () => {
     const response = await fetch("/api/admin/orders", { cache: "no-store" });
@@ -146,7 +151,10 @@ export function OrdersDashboard() {
       if (supabase) {
         const { error: signOutError } = await supabase.auth.signOut();
         if (signOutError) {
-          console.error("Failed to clear rejected admin session:", signOutError.message);
+          console.error(
+            "Failed to clear rejected admin session:",
+            signOutError.message,
+          );
         }
       }
       setIsSignedIn(false);
@@ -305,111 +313,179 @@ export function OrdersDashboard() {
       {isLoading ? (
         <p className="mt-8 text-sm text-slate-600">Loading orders...</p>
       ) : isSignedIn ? (
-        orders.length ? (
-          <div className="mt-6 grid gap-4">
-            {orders.map((order) => (
-              <article
-                key={order.id}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+        <>
+          <div className="mt-6 rounded-2xl border border-orange-100 bg-orange-50/70 p-4 sm:p-5">
+            <label
+              htmlFor="order-code-search"
+              className="text-sm font-semibold text-slate-800"
+            >
+              Find an order by its code
+            </label>
+            <div className="relative mt-2">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                      Order {order.order_reference}
-                    </p>
-                    <h2 className="mt-1 text-xl font-semibold text-slate-900">
-                      {order.product_name}
-                    </h2>
-                    <p className="mt-1 font-medium text-orange-700">
-                      {formatMntPrice(
-                        parseMntAmount(order.price) * order.quantity,
-                      )}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600">
-                      Quantity: {order.quantity} · Unit price:{" "}
-                      {formatMntPrice(order.price)}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${
-                      order.status === "completed"
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-amber-100 text-amber-800"
-                    }`}
-                  >
-                    {order.status}
-                  </span>
-                </div>
-
-                <dl className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                  <div>
-                    <dt className="inline font-semibold">Student: </dt>
-                    <dd className="inline">{order.delivery_address.recipient}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-semibold">Class: </dt>
-                    <dd className="inline">{order.delivery_address.classNumber}</dd>
-                  </div>
-                  {order.delivery_address.roomNumber ? (
-                    <div>
-                      <dt className="inline font-semibold">Room: </dt>
-                      <dd className="inline">{order.delivery_address.roomNumber}</dd>
-                    </div>
-                  ) : null}
-                  {order.delivery_address.building ? (
-                    <div>
-                      <dt className="inline font-semibold">Floor: </dt>
-                      <dd className="inline">{order.delivery_address.building}</dd>
-                    </div>
-                  ) : null}
-                  {order.seller_email ? (
-                    <div>
-                      <dt className="inline font-semibold">Seller: </dt>
-                      <dd className="inline">{order.seller_email}</dd>
-                    </div>
-                  ) : null}
-                  <div>
-                    <dt className="inline font-semibold">Received: </dt>
-                    <dd className="inline">
-                      {new Date(order.created_at).toLocaleString()}
-                    </dd>
-                  </div>
-                </dl>
-                {order.delivery_address.instructions ? (
-                  <p className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-700">
-                    <span className="font-semibold">Notes: </span>
-                    {order.delivery_address.instructions}
-                  </p>
-                ) : null}
-
-                <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
-                  <button
-                    type="button"
-                    disabled={busyOrderId === order.id}
-                    onClick={() => void updateStatus(order)}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
-                  >
-                    {order.status === "completed"
-                      ? "Reopen order"
-                      : "Mark completed"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyOrderId === order.id}
-                    onClick={() => setOrderToDelete(order)}
-                    className="rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))}
+                <circle
+                  cx="10.8"
+                  cy="10.8"
+                  r="6.8"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="m16 16 4.2 4.2"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="1.8"
+                />
+              </svg>
+              <input
+                id="order-code-search"
+                type="search"
+                autoComplete="off"
+                value={orderCodeSearch}
+                onChange={(event) => setOrderCodeSearch(event.target.value)}
+                placeholder="Enter the 6-character order code"
+                className="h-12 w-full rounded-xl border border-slate-300 bg-white pl-12 pr-4 text-sm font-medium tracking-wide text-slate-900 outline-none transition placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 hover:border-orange-300 focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+              />
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-600">
+              Enter all or part of the code shown on the buyer&apos;s receipt.
+              Matching orders will appear below, where you can review or delete
+              them.
+            </p>
+            {normalizedOrderCodeSearch ? (
+              <p
+                className="mt-2 text-xs font-semibold text-slate-700"
+                aria-live="polite"
+              >
+                {matchingOrders.length} matching{" "}
+                {matchingOrders.length === 1 ? "order" : "orders"}
+              </p>
+            ) : null}
           </div>
-        ) : (
-          <p className="mt-8 rounded-2xl bg-slate-50 p-6 text-center text-slate-600">
-            There are no purchase requests yet.
-          </p>
-        )
+          {!orders.length ? (
+            <p className="mt-4 rounded-2xl bg-slate-50 p-6 text-center text-slate-600">
+              There are no purchase requests yet.
+            </p>
+          ) : !matchingOrders.length ? (
+            <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-600">
+              No orders match that code. Check the code on the receipt and try
+              again.
+            </p>
+          ) : (
+            <div className="mt-4 grid gap-4">
+              {matchingOrders.map((order) => (
+                <article
+                  key={order.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="inline-flex rounded-full border border-orange-200 bg-orange-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-orange-800">
+                        Order {order.order_reference}
+                      </p>
+                      <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                        {order.product_name}
+                      </h2>
+                      <p className="mt-1 font-medium text-orange-700">
+                        {formatMntPrice(
+                          parseMntAmount(order.price) * order.quantity,
+                        )}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Quantity: {order.quantity} · Unit price:{" "}
+                        {formatMntPrice(order.price)}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold uppercase ${
+                        order.status === "completed"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+
+                  <dl className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+                    <div>
+                      <dt className="inline font-semibold">Student: </dt>
+                      <dd className="inline">
+                        {order.delivery_address.recipient}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="inline font-semibold">Class: </dt>
+                      <dd className="inline">
+                        {order.delivery_address.classNumber}
+                      </dd>
+                    </div>
+                    {order.delivery_address.roomNumber ? (
+                      <div>
+                        <dt className="inline font-semibold">Room: </dt>
+                        <dd className="inline">
+                          {order.delivery_address.roomNumber}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {order.delivery_address.building ? (
+                      <div>
+                        <dt className="inline font-semibold">Floor: </dt>
+                        <dd className="inline">
+                          {order.delivery_address.building}
+                        </dd>
+                      </div>
+                    ) : null}
+                    {order.seller_email ? (
+                      <div>
+                        <dt className="inline font-semibold">Seller: </dt>
+                        <dd className="inline">{order.seller_email}</dd>
+                      </div>
+                    ) : null}
+                    <div>
+                      <dt className="inline font-semibold">Received: </dt>
+                      <dd className="inline">
+                        {new Date(order.created_at).toLocaleString()}
+                      </dd>
+                    </div>
+                  </dl>
+                  {order.delivery_address.instructions ? (
+                    <p className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-700">
+                      <span className="font-semibold">Notes: </span>
+                      {order.delivery_address.instructions}
+                    </p>
+                  ) : null}
+
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-200 pt-4">
+                    <button
+                      type="button"
+                      disabled={busyOrderId === order.id}
+                      onClick={() => void updateStatus(order)}
+                      className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {order.status === "completed"
+                        ? "Reopen order"
+                        : "Mark completed"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyOrderId === order.id}
+                      onClick={() => setOrderToDelete(order)}
+                      className="rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
       ) : !supabaseConfigured ? (
         <div className="mt-8 max-w-2xl rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">
           <p className="font-semibold">Order storage is not connected yet.</p>
@@ -454,8 +530,8 @@ export function OrdersDashboard() {
             Sign in to orders
           </button>
           <p className="text-xs leading-5 text-slate-500">
-            Use the marketing admin email and password created in Supabase.
-            Use an account assigned the ADMIN or Marketplace Admin badge.
+            Use the marketing admin email and password created in Supabase. Use
+            an account assigned the ADMIN or Marketplace Admin badge.
           </p>
         </form>
       )}

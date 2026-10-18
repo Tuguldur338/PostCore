@@ -12,6 +12,7 @@ import { Footer } from "@/components/footer";
 import { Header } from "@/components/header";
 import { parseMntAmount } from "@/components/currency";
 import { isValidClassNumber } from "@/components/delivery-validation";
+import { maxProductImageDataUrlLength } from "@/components/product-image";
 import { QuantityInput } from "@/components/quantity-input";
 import type { Product } from "@/components/types";
 
@@ -28,8 +29,7 @@ type ProductFormState = {
   deliveryMethod: string;
 };
 
-const maxImageDimension = 1280;
-const maxImageDataUrlLength = 220_000;
+const maxImageDimension = 1600;
 
 const emptyProductForm: ProductFormState = {
   name: "",
@@ -64,7 +64,7 @@ function compressImage(source: Blob | string): Promise<string> {
         let scale = Math.min(1, maxImageDimension / largestDimension);
         let compressedImage = "";
 
-        for (let resizeAttempt = 0; resizeAttempt < 6; resizeAttempt += 1) {
+        for (let resizeAttempt = 0; resizeAttempt < 4; resizeAttempt += 1) {
           const canvas = document.createElement("canvas");
           canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
           canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -73,15 +73,15 @@ function compressImage(source: Blob | string): Promise<string> {
           if (!context) throw new Error("Image compression is unavailable.");
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
 
-          for (const quality of [0.8, 0.68, 0.55]) {
+          for (const quality of [0.86, 0.78, 0.7, 0.62, 0.54]) {
             compressedImage = canvas.toDataURL("image/webp", quality);
-            if (compressedImage.length <= maxImageDataUrlLength) {
+            if (compressedImage.length <= maxProductImageDataUrlLength) {
               resolve(compressedImage);
               return;
             }
           }
 
-          scale *= 0.75;
+          scale *= 0.85;
         }
 
         throw new Error("Image is too large to store.");
@@ -319,6 +319,7 @@ export default function SellPage() {
                     className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm outline-none"
                     placeholder="Item name"
                   />
+
                   <div className="grid gap-2">
                     <label
                       htmlFor="listing-price"
@@ -326,6 +327,7 @@ export default function SellPage() {
                     >
                       Price (MNT)
                     </label>
+
                     <QuantityInput
                       id="listing-price"
                       min={1}
@@ -342,6 +344,7 @@ export default function SellPage() {
                     >
                       Quantity
                     </label>
+
                     <QuantityInput
                       id="listing-quantity"
                       min={1}

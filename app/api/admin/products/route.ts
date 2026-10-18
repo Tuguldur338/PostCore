@@ -1,4 +1,5 @@
 import { requireMarketingAdmin } from "@/lib/supabase/require-marketing-admin";
+import { maxProductImageDataUrlLength } from "@/components/product-image";
 import type { Product } from "@/components/types";
 
 type ProductInput = {
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
     !/^[1-9]\d{0,11}$/.test(body.price) ||
     !isText(body.badge, 80) ||
     !isText(body.description, 2000) ||
-    !isText(body.image, 220_000) ||
+    !isText(body.image, maxProductImageDataUrlLength) ||
     !isText(body.category, 80) ||
     !isText(body.fitsFor, 200) ||
     typeof body.quantity !== "number" ||

@@ -182,7 +182,7 @@ create table if not exists public.products (
   description text not null
     check (char_length(btrim(description)) between 1 and 2000),
   image text not null
-    check (char_length(btrim(image)) between 1 and 220000),
+    check (char_length(btrim(image)) between 1 and 1000000),
   category text not null
     check (char_length(btrim(category)) between 1 and 80),
   fits_for text not null
@@ -194,6 +194,12 @@ create table if not exists public.products (
   is_available boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+alter table public.products
+  drop constraint if exists products_image_check;
+alter table public.products
+  add constraint products_image_check
+  check (char_length(btrim(image)) between 1 and 1000000);
 
 insert into public.products (
   id, name, price, badge, description, image, category, fits_for, quantity

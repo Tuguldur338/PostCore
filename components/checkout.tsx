@@ -282,6 +282,9 @@ export function CheckoutDialog({
                   placeholder="Notes, e.g. leave with the class teacher (optional)"
                   aria-label="Delivery notes"
                 />
+                <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900">
+                  Recommended to write on paper
+                </p>
                 {error ? (
                   <div
                     role="alert"

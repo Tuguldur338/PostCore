@@ -22,6 +22,29 @@ import type {
 const sessionKey = "postcore-current-user";
 const authSetupMessage =
   "Shared sign-in is not configured on this deployment. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel Project Settings, then redeploy.";
+const confirmationRedirectSetupMessage =
+  "Set NEXT_PUBLIC_SITE_URL to your live website URL before registering from localhost, then restart the development server. For example: NEXT_PUBLIC_SITE_URL=https://your-site.vercel.app";
+
+function getConfirmationRedirectUrl() {
+  const configuredSiteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (
+    !configuredSiteUrl &&
+    ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)
+  ) {
+    return null;
+  }
+
+  const siteUrl = new URL(configuredSiteUrl || window.location.origin);
+  if (
+    (siteUrl.protocol !== "https:" && siteUrl.hostname !== "localhost") ||
+    siteUrl.username ||
+    siteUrl.password
+  ) {
+    throw new Error("NEXT_PUBLIC_SITE_URL must be a valid website URL.");
+  }
+
+  return new URL("/", siteUrl).toString();
+}
 
 function isAuthRateLimitError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -261,11 +284,18 @@ export function Storefront() {
     try {
       const supabase = createSupabaseBrowserClient();
       if (mode === "register") {
+        const emailRedirectTo = getConfirmationRedirectUrl();
+        if (!emailRedirectTo) {
+          setStatus(confirmationRedirectSetupMessage);
+          return;
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email,
           password: form.password,
           options: {
             data: { full_name: form.name.trim() },
+            emailRedirectTo,
           },
         });
         if (error) throw error;
@@ -337,9 +367,16 @@ export function Storefront() {
 
     setIsSubmittingAuth(true);
     try {
+      const emailRedirectTo = getConfirmationRedirectUrl();
+      if (!emailRedirectTo) {
+        setStatus(confirmationRedirectSetupMessage);
+        return;
+      }
+
       const { error } = await createSupabaseBrowserClient().auth.resend({
         type: "signup",
         email,
+        options: { emailRedirectTo },
       });
       if (error) throw error;
       setStatus(

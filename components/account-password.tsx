@@ -12,6 +12,11 @@ export function AccountPassword() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [visiblePasswords, setVisiblePasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  });
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -125,41 +130,47 @@ export function AccountPassword() {
           <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
             Signed in as <span className="font-semibold text-slate-900">{email}</span>
           </p>
-          <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            Current password
-            <input
-              required
-              autoComplete="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
-            />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            New password
-            <input
-              required
-              minLength={8}
-              autoComplete="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
-            />
-          </label>
-          <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            Confirm new password
-            <input
-              required
-              minLength={8}
-              autoComplete="new-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
-            />
-          </label>
+          <PasswordField
+            label="Current password"
+            autoComplete="current-password"
+            value={currentPassword}
+            visible={visiblePasswords.current}
+            onChange={setCurrentPassword}
+            onToggle={() =>
+              setVisiblePasswords((visible) => ({
+                ...visible,
+                current: !visible.current,
+              }))
+            }
+          />
+          <PasswordField
+            label="New password"
+            autoComplete="new-password"
+            value={newPassword}
+            visible={visiblePasswords.new}
+            onChange={setNewPassword}
+            onToggle={() =>
+              setVisiblePasswords((visible) => ({
+                ...visible,
+                new: !visible.new,
+              }))
+            }
+            minLength={8}
+          />
+          <PasswordField
+            label="Confirm new password"
+            autoComplete="new-password"
+            value={confirmPassword}
+            visible={visiblePasswords.confirm}
+            onChange={setConfirmPassword}
+            onToggle={() =>
+              setVisiblePasswords((visible) => ({
+                ...visible,
+                confirm: !visible.confirm,
+              }))
+            }
+            minLength={8}
+          />
           {error ? (
             <p
               role="alert"
@@ -196,5 +207,91 @@ export function AccountPassword() {
         </div>
       )}
     </section>
+  );
+}
+
+type PasswordFieldProps = {
+  label: string;
+  autoComplete: string;
+  value: string;
+  visible: boolean;
+  onChange: (value: string) => void;
+  onToggle: () => void;
+  minLength?: number;
+};
+
+function PasswordField({
+  label,
+  autoComplete,
+  value,
+  visible,
+  onChange,
+  onToggle,
+  minLength,
+}: PasswordFieldProps) {
+  return (
+    <label className="grid gap-2 text-sm font-semibold text-slate-700">
+      {label}
+      <span className="relative">
+        <input
+          required
+          minLength={minLength}
+          autoComplete={autoComplete}
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-12 font-normal outline-none transition focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={visible ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+          aria-pressed={visible}
+          className="absolute inset-y-0 right-2 flex w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-500"
+        >
+          <PasswordVisibilityIcon visible={visible} />
+        </button>
+      </span>
+    </label>
+  );
+}
+
+function PasswordVisibilityIcon({ visible }: { visible: boolean }) {
+  return visible ? (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-5 w-5"
+    >
+      <path
+        d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.8 10.8 0 0112 5c5 0 8.5 4.1 9.5 7-.4 1.2-1.2 2.5-2.4 3.7M6.2 6.2C4.2 7.5 2.9 9.6 2.5 12c.9 2.9 4.5 7 9.5 7 1.3 0 2.5-.3 3.6-.8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  ) : (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-5 w-5"
+    >
+      <path
+        d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+    </svg>
   );
 }

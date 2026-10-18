@@ -1,4 +1,4 @@
-import type { ChangeEvent, FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import type { AuthForm, AuthMode, DeliveryAddress, User } from "./types";
 
 type AuthPanelProps = {
@@ -50,6 +50,9 @@ export function Account({
   onDeliveryAddressChange,
   onDeliveryAddressSubmit,
 }: AuthPanelProps) {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   if (currentUser) {
     return (
       <div className="space-y-5">
@@ -274,17 +277,28 @@ export function Account({
           <label className="mb-1 block text-sm font-medium text-slate-700">
             Password
           </label>
-          <input
-            className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
-            type="password"
-            autoComplete={
-              mode === "register" ? "new-password" : "current-password"
-            }
-            required
-            value={form.password}
-            onChange={(event) => onInputChange("password", event.target.value)}
-            placeholder="••••••••"
-          />
+          <div className="relative">
+            <input
+              className="w-full rounded-2xl border border-slate-200 px-3 py-3 pr-12 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
+              type={showPassword ? "text" : "password"}
+              autoComplete={
+                mode === "register" ? "new-password" : "current-password"
+              }
+              required
+              value={form.password}
+              onChange={(event) => onInputChange("password", event.target.value)}
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((visible) => !visible)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="absolute inset-y-0 right-2 flex w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+            >
+              <PasswordVisibilityIcon visible={showPassword} />
+            </button>
+          </div>
         </div>
 
         {mode === "register" && (
@@ -292,17 +306,32 @@ export function Account({
             <label className="mb-1 block text-sm font-medium text-slate-700">
               Confirm password
             </label>
-            <input
-              className="w-full rounded-2xl border border-slate-200 px-3 py-3 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={form.confirmPassword}
-              onChange={(event) =>
-                onInputChange("confirmPassword", event.target.value)
-              }
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                className="w-full rounded-2xl border border-slate-200 px-3 py-3 pr-12 outline-none ring-0 transition-colors duration-200 ease-out focus:border-sky-400"
+                type={showConfirmPassword ? "text" : "password"}
+                autoComplete="new-password"
+                required
+                value={form.confirmPassword}
+                onChange={(event) =>
+                  onInputChange("confirmPassword", event.target.value)
+                }
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((visible) => !visible)}
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirmation password"
+                    : "Show confirmation password"
+                }
+                aria-pressed={showConfirmPassword}
+                className="absolute inset-y-0 right-2 flex w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
+              >
+                <PasswordVisibilityIcon visible={showConfirmPassword} />
+              </button>
+            </div>
           </div>
         )}
 
@@ -334,5 +363,45 @@ export function Account({
         {status}
       </div>
     </div>
+  );
+}
+
+function PasswordVisibilityIcon({ visible }: { visible: boolean }) {
+  return visible ? (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-5 w-5"
+    >
+      <path
+        d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.8 10.8 0 0112 5c5 0 8.5 4.1 9.5 7-.4 1.2-1.2 2.5-2.4 3.7M6.2 6.2C4.2 7.5 2.9 9.6 2.5 12c.9 2.9 4.5 7 9.5 7 1.3 0 2.5-.3 3.6-.8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
+  ) : (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="h-5 w-5"
+    >
+      <path
+        d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+    </svg>
   );
 }

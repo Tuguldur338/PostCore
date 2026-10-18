@@ -286,7 +286,9 @@ export function Account({
               }
               required
               value={form.password}
-              onChange={(event) => onInputChange("password", event.target.value)}
+              onChange={(event) =>
+                onInputChange("password", event.target.value)
+              }
               placeholder="••••••••"
             />
             <button
@@ -368,12 +370,7 @@ export function Account({
 
 function PasswordVisibilityIcon({ visible }: { visible: boolean }) {
   return visible ? (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      className="h-5 w-5"
-    >
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
       <path
         d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.8 10.8 0 0112 5c5 0 8.5 4.1 9.5 7-.4 1.2-1.2 2.5-2.4 3.7M6.2 6.2C4.2 7.5 2.9 9.6 2.5 12c.9 2.9 4.5 7 9.5 7 1.3 0 2.5-.3 3.6-.8"
         stroke="currentColor"
@@ -383,25 +380,14 @@ function PasswordVisibilityIcon({ visible }: { visible: boolean }) {
       />
     </svg>
   ) : (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      className="h-5 w-5"
-    >
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
       <path
         d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7Z"
         stroke="currentColor"
         strokeLinejoin="round"
         strokeWidth="1.8"
       />
-      <circle
-        cx="12"
-        cy="12"
-        r="3"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   );
 }

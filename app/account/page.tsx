@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminEmailDirectory } from "@/components/admin-email-directory";
 import { AccountPassword } from "@/components/account-password";
 import { AccountReceipts } from "@/components/account-receipts";
 import { Footer } from "@/components/footer";
@@ -11,6 +12,8 @@ export default function AccountPage() {
         <Header />
 
         <AccountReceipts />
+
+        <AdminEmailDirectory />
 
         <AccountPassword />
 

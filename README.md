@@ -58,7 +58,7 @@ The website does not process payments. Users must be signed in to place an order
 
 ## Marketplace account badges
 
-The latest `supabase/schema.sql` creates shared marketplace profiles and assigns the confirmed `tuguldur09252@gmail.com` account the protected `ADMIN` badge. Existing Supabase users with the trusted `marketing_admin` app-metadata role are migrated to Marketplace Admin. Run the latest schema in the Supabase SQL Editor, then sign out and back in to load the badge. On `/orders`, Marketplace Admins can assign Student or Marketplace Admin badges; only ADMINs can assign the ADMIN badge. The primary ADMIN account cannot be changed. Both roles can manage products and orders.
+The latest `supabase/schema.sql` creates shared marketplace profiles and assigns the confirmed `tuguldur09252@gmail.com` account the protected `ADMIN` badge. Existing Supabase users with the trusted `marketing_admin` app-metadata role are migrated to Marketplace Admin. Run the latest schema in the Supabase SQL Editor, then sign out and back in to load the badge. On `/orders`, Marketplace Admins can assign Student or Marketplace Admin badges; only ADMINs can assign the ADMIN badge. The primary ADMIN account cannot be changed. Both roles can manage products and orders. The ADMIN account can also view registered email addresses on `/account`; passwords are never exposed and must be reset through the account recovery flow.
 
 ## Admin and selling
 

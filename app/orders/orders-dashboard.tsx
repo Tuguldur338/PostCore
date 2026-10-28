@@ -377,13 +377,20 @@ export function OrdersDashboard() {
           </p>
         </div>
         {isSignedIn ? (
-          <button
-            type="button"
-            onClick={() => void handleLogout()}
-            className="btn btn-secondary btn-sm"
-          >
-            Sign out
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {role === "admin" ? (
+              <a href="#badge-assignment" className="btn btn-secondary btn-sm">
+                Assign a badge
+              </a>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void handleLogout()}
+              className="btn btn-secondary btn-sm"
+            >
+              Sign out
+            </button>
+          </div>
         ) : null}
       </div>
 
@@ -598,7 +605,10 @@ export function OrdersDashboard() {
       )}
 
       {isSignedIn && role === "admin" ? (
-        <section className="mt-8 border-t border-slate-200 pt-8">
+        <section
+          id="badge-assignment"
+          className="mt-8 scroll-mt-28 border-t border-slate-200 pt-8"
+        >
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-700">
             ADMIN controls
           </p>

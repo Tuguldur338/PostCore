@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { formatMntPrice, parseMntAmount } from "@/components/currency";
+import { ArrowRight, Check, Search, ShieldCheck } from "@/components/icons";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseConfig } from "@/lib/supabase/config";
 
@@ -34,10 +35,24 @@ type MarketplaceAccount = {
   created_at: string;
 };
 
-function isMarketplaceRole(value: string): value is MarketplaceRole {
-  return (
-    value === "student" || value === "marketplace_admin" || value === "admin"
-  );
+const primaryAdminEmail = "tuguldur09252@gmail.com";
+
+const badgeLabels: Record<MarketplaceRole, string> = {
+  student: "Student",
+  marketplace_admin: "Marketplace Admin",
+  admin: "ADMIN",
+};
+
+const badgeDescriptions: Record<MarketplaceRole, string> = {
+  student: "Can browse, save, and request items.",
+  marketplace_admin: "Can manage listings and orders. Cannot change badges.",
+  admin: "Full access, including badge assignment for every account.",
+};
+
+function badgeToneClass(role: MarketplaceRole): string {
+  if (role === "admin") return "bg-amber-100 text-amber-900";
+  if (role === "marketplace_admin") return "bg-indigo-100 text-indigo-900";
+  return "bg-slate-200 text-slate-700";
 }
 
 export function OrdersDashboard() {
@@ -53,7 +68,16 @@ export function OrdersDashboard() {
   const [busyOrderId, setBusyOrderId] = useState("");
   const [busyUserId, setBusyUserId] = useState("");
   const [error, setError] = useState("");
-  const { signOut } = useAuth();
+  const [roleQuery, setRoleQuery] = useState("");
+  const [selectedAccount, setSelectedAccount] = useState<MarketplaceAccount | null>(
+    null,
+  );
+  const [pendingRole, setPendingRole] = useState<MarketplaceRole>("student");
+  const [roleNotice, setRoleNotice] = useState<{
+    tone: "success" | "error";
+    message: string;
+  } | null>(null);
+  const { user: currentUser, signOut } = useAuth();
   const supabaseConfigured = Boolean(getSupabaseConfig());
   const normalizedOrderCodeSearch = orderCodeSearch.trim().toUpperCase();
   const matchingOrders = normalizedOrderCodeSearch
@@ -61,6 +85,18 @@ export function OrdersDashboard() {
         order.order_reference.toUpperCase().includes(normalizedOrderCodeSearch),
       )
     : orders;
+  const normalizedRoleQuery = roleQuery.trim().toLowerCase();
+  const roleMatches =
+    normalizedRoleQuery.length >= 2
+      ? accounts
+          .filter((account) => account.email.toLowerCase().includes(normalizedRoleQuery))
+          .slice(0, 6)
+      : [];
+  const selectedIsPrimary =
+    selectedAccount?.email.toLowerCase() === primaryAdminEmail;
+  const selectedIsSelf =
+    Boolean(currentUser?.id) && selectedAccount?.user_id === currentUser?.id;
+  const selectedIsProtected = Boolean(selectedIsPrimary || selectedIsSelf);
 
   const loadOrders = async () => {
     const response = await fetch("/api/admin/orders", { cache: "no-store" });
@@ -73,7 +109,7 @@ export function OrdersDashboard() {
     }
     setOrders(result.orders ?? []);
     setRole(result.role);
-    if (result.role) {
+    if (result.role === "admin") {
       const usersResponse = await fetch("/api/admin/users", {
         cache: "no-store",
       });
@@ -176,21 +212,63 @@ export function OrdersDashboard() {
     setIsSignedIn(false);
   };
 
-  const updateRole = async (
-    account: MarketplaceAccount,
-    nextRole: MarketplaceRole,
-  ) => {
+  const selectAccountForBadge = (account: MarketplaceAccount) => {
+    setSelectedAccount(account);
+    setPendingRole(account.role);
+    setRoleNotice(null);
     setError("");
-    if (role !== "admin") {
-      setError("Only the ADMIN account can change marketplace roles.");
+  };
+
+  const clearBadgeSelection = () => {
+    setSelectedAccount(null);
+    setPendingRole("student");
+    setRoleQuery("");
+    setRoleNotice(null);
+  };
+
+  const assignBadge = async () => {
+    if (!selectedAccount) {
+      setRoleNotice({
+        tone: "error",
+        message: "Search for an account and select it before assigning a badge.",
+      });
       return;
     }
-    setBusyUserId(account.user_id);
+    if (role !== "admin") {
+      setRoleNotice({
+        tone: "error",
+        message: "Only the ADMIN account can change marketplace badges.",
+      });
+      return;
+    }
+    if (selectedIsProtected) {
+      setRoleNotice({
+        tone: "error",
+        message: selectedIsPrimary
+          ? "The primary ADMIN account's badge is protected."
+          : "You cannot change your own marketplace badge.",
+      });
+      return;
+    }
+    if (pendingRole === selectedAccount.role) {
+      setRoleNotice({
+        tone: "error",
+        message: `${selectedAccount.email} already has the ${badgeLabels[pendingRole]} badge.`,
+      });
+      return;
+    }
+
+    setError("");
+    setRoleNotice(null);
+    setBusyUserId(selectedAccount.user_id);
     try {
       const response = await fetch("/api/admin/users", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: account.user_id, role: nextRole }),
+        body: JSON.stringify({
+          email: selectedAccount.email,
+          role: pendingRole,
+        }),
       });
       const result = (await response.json()) as {
         message?: string;
@@ -201,17 +279,27 @@ export function OrdersDashboard() {
           result.message ?? "The marketplace badge could not be updated.",
         );
       }
+
       setAccounts((current) =>
         current.map((item) =>
           item.user_id === result.user?.user_id ? result.user : item,
         ),
       );
+      setRoleNotice({
+        tone: "success",
+        message: `${result.user.display_name || result.user.email} is now ${badgeLabels[result.user.role]}.`,
+      });
+      setSelectedAccount(null);
+      setPendingRole("student");
+      setRoleQuery("");
     } catch (roleError) {
-      setError(
-        roleError instanceof Error
-          ? roleError.message
-          : "The marketplace badge could not be updated.",
-      );
+      setRoleNotice({
+        tone: "error",
+        message:
+          roleError instanceof Error
+            ? roleError.message
+            : "The marketplace badge could not be updated.",
+      });
     } finally {
       setBusyUserId("");
     }
@@ -509,91 +597,243 @@ export function OrdersDashboard() {
         </form>
       )}
 
-      {isSignedIn && role ? (
+      {isSignedIn && role === "admin" ? (
         <section className="mt-8 border-t border-slate-200 pt-8">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-700">
-            {role === "admin"
-              ? "ADMIN controls"
-              : "Marketplace Admin · read-only badges"}
+            ADMIN controls
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-            Marketplace account badges
+            Assign a marketplace badge
           </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            {role === "admin"
-              ? "Assign badges to other registered accounts. Only the ADMIN account can change a role, and the primary ADMIN account is protected from badge changes."
-              : "Only the ADMIN account can change a marketplace badge. You can review registered accounts here, but role editing is locked."}
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Search for the account by its email, select the matching account,
+            then choose a badge. Only the ADMIN account can do this. The primary
+            ADMIN account is protected.
           </p>
-          {accounts.length ? (
-            <div className="mt-5 grid gap-3">
-              {accounts.map((account) => (
-                <div
-                  key={account.user_id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold text-slate-900">
-                      {account.display_name || "Marketplace user"}
-                    </p>
-                    <p className="truncate text-sm text-slate-600">
-                      {account.email}
-                    </p>
-                  </div>
-                  <label className="grid w-full gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 sm:w-56">
-                    Badge
-                    <span className="relative">
-                      <select
-                        value={account.role}
-                        aria-label={`Marketplace badge for ${account.email}`}
-                        title={
-                          role === "admin"
-                            ? "Change this account's marketplace badge"
-                            : "Only the ADMIN account can change marketplace badges."
-                        }
-                        disabled={
-                          role !== "admin" ||
-                          busyUserId === account.user_id ||
-                          account.email.toLowerCase() ===
-                            "tuguldur09252@gmail.com"
-                        }
-                        onChange={(event) => {
-                          const nextRole = event.currentTarget.value;
-                          if (isMarketplaceRole(nextRole)) {
-                            void updateRole(account, nextRole);
-                          }
-                        }}
-                        className="h-12 w-full appearance-none rounded-xl border border-slate-300 bg-white px-4 pr-11 text-sm font-semibold normal-case tracking-normal text-slate-800 shadow-sm outline-none transition hover:border-orange-300 focus:border-orange-500 focus:ring-4 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:opacity-70"
-                      >
-                        <option value="student">Student</option>
-                        <option value="marketplace_admin">
-                          Marketplace Admin
-                        </option>
-                        <option value="admin">ADMIN</option>
-                      </select>
-                      <svg
-                        aria-hidden="true"
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500"
-                      >
-                        <path
-                          d="m6 8 4 4 4-4"
-                          stroke="currentColor"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="1.8"
-                        />
-                      </svg>
-                    </span>
-                  </label>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-5 rounded-2xl bg-slate-50 p-5 text-sm text-slate-600">
-              No registered marketplace accounts are available to manage yet.
+
+          {roleNotice ? (
+            <p
+              role={roleNotice.tone === "error" ? "alert" : "status"}
+              className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+                roleNotice.tone === "error"
+                  ? "border-red-200 bg-red-50 text-red-800"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-800"
+              }`}
+            >
+              {roleNotice.message}
             </p>
-          )}
+          ) : null}
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+              <label
+                htmlFor="badge-email-search"
+                className="text-sm font-semibold text-slate-800"
+              >
+                Find an account by email
+              </label>
+              <div className="relative mt-2">
+                <Search
+                  size={17}
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  id="badge-email-search"
+                  type="search"
+                  autoComplete="off"
+                  value={roleQuery}
+                  onChange={(event) => {
+                    setRoleQuery(event.target.value);
+                    setSelectedAccount(null);
+                    setRoleNotice(null);
+                  }}
+                  placeholder="name@orkhonschool.edu.mn"
+                  className="h-12 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-orange-300 focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+                />
+              </div>
+              <p
+                className="mt-2 text-xs font-medium text-slate-500"
+                aria-live="polite"
+              >
+                {normalizedRoleQuery.length < 2
+                  ? "Type at least 2 characters of the account's email."
+                  : `${roleMatches.length} ${
+                      roleMatches.length === 1 ? "match" : "matches"
+                    } shown`}
+              </p>
+
+              {normalizedRoleQuery.length >= 2 ? (
+                <div className="mt-3 grid gap-2">
+                  {roleMatches.map((account) => {
+                    const isSelected = selectedAccount?.user_id === account.user_id;
+                    const isProtected =
+                      account.email.toLowerCase() === primaryAdminEmail ||
+                      account.user_id === currentUser?.id;
+
+                    return (
+                      <button
+                        key={account.user_id}
+                        type="button"
+                        onClick={() => selectAccountForBadge(account)}
+                        className={`flex items-center justify-between gap-3 rounded-xl border p-3 text-left transition ${
+                          isSelected
+                            ? "border-orange-400 bg-white ring-2 ring-orange-100"
+                            : "border-slate-200 bg-white hover:border-orange-300"
+                        }`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-slate-900">
+                            {account.display_name || "Marketplace user"}
+                          </span>
+                          <span className="block truncate text-xs text-slate-500">
+                            {account.email}
+                          </span>
+                          {isProtected ? (
+                            <span className="mt-1 block text-[0.65rem] font-semibold text-amber-700">
+                              Protected account
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[0.6rem] font-bold uppercase tracking-wide ${badgeToneClass(account.role)}`}
+                          >
+                            {badgeLabels[account.role]}
+                          </span>
+                          {isSelected ? (
+                            <Check size={15} className="text-orange-600" />
+                          ) : (
+                            <ArrowRight size={15} className="text-slate-400" />
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {roleMatches.length === 0 ? (
+                    <p className="rounded-xl bg-white px-3 py-2.5 text-sm text-slate-500">
+                      No registered account email matches that search.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {accounts.length === 0 ? (
+                <p className="mt-3 rounded-xl bg-white px-3 py-2.5 text-sm text-slate-500">
+                  No registered marketplace accounts are available yet.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+              {selectedAccount ? (
+                <>
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Selected account
+                  </p>
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {selectedAccount.display_name || "Marketplace user"}
+                  </p>
+                  <p className="truncate text-sm text-slate-500">
+                    {selectedAccount.email}
+                  </p>
+
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      New badge
+                    </p>
+                    <div className="mt-2 grid gap-2">
+                      {(["student", "marketplace_admin", "admin"] as const).map(
+                        (value) => (
+                          <label
+                            key={value}
+                            className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                              pendingRole === value
+                                ? "border-orange-400 bg-orange-50/60"
+                                : "border-slate-200 hover:border-slate-300"
+                            } ${
+                              selectedIsProtected ||
+                              busyUserId === selectedAccount.user_id
+                                ? "cursor-not-allowed opacity-60"
+                                : ""
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="badge-role"
+                              value={value}
+                              checked={pendingRole === value}
+                              onChange={() => setPendingRole(value)}
+                              disabled={
+                                selectedIsProtected ||
+                                busyUserId === selectedAccount.user_id
+                              }
+                              className="mt-1 h-4 w-4 accent-orange-600"
+                            />
+                            <span>
+                              <span className="block text-sm font-semibold text-slate-900">
+                                {badgeLabels[value]}
+                              </span>
+                              <span className="block text-xs leading-5 text-slate-500">
+                                {badgeDescriptions[value]}
+                              </span>
+                            </span>
+                          </label>
+                        ),
+                      )}
+                    </div>
+                  </div>
+
+                  {selectedIsProtected ? (
+                    <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
+                      {selectedIsPrimary
+                        ? "The primary ADMIN account's badge is protected and cannot be changed."
+                        : "You cannot change your own marketplace badge."}
+                    </p>
+                  ) : pendingRole === "admin" ? (
+                    <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
+                      ADMIN can manage every account and badge. Only assign this to
+                      someone you fully trust.
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    onClick={() => void assignBadge()}
+                    disabled={
+                      busyUserId === selectedAccount.user_id ||
+                      selectedIsProtected ||
+                      pendingRole === selectedAccount.role
+                    }
+                    className="mt-4 w-full rounded-full bg-orange-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    {busyUserId === selectedAccount.user_id
+                      ? "Assigning badge…"
+                      : `Assign ${badgeLabels[pendingRole]}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearBadgeSelection}
+                    className="mt-2 w-full rounded-full border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+                  >
+                    Choose another account
+                  </button>
+                </>
+              ) : (
+                <div className="flex h-full min-h-56 flex-col items-center justify-center text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+                    <ShieldCheck size={22} />
+                  </span>
+                  <p className="mt-3 font-semibold text-slate-900">
+                    Select an account first
+                  </p>
+                  <p className="mt-1 max-w-xs text-sm leading-6 text-slate-500">
+                    Search for the exact email, then pick it from the results.
+                    Badge controls appear only after you select a match.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </section>
       ) : null}
 

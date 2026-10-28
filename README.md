@@ -111,9 +111,12 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Marketplace admins** can add listings, edit stock, mark items unavailable,
   remove listings, and manage orders. They cannot change anyone's marketplace
   role or badge.
-- The **ADMIN** account is the only account that can assign or change
-  `student`, `marketplace_admin`, and `admin` roles, and it can view the
-  registered-account directory on `/account`.
+- The **ADMIN** account is the only account that can view or change
+  `student`, `marketplace_admin`, and `admin` badges. On `/orders`, the ADMIN
+  searches for the account's registered email, selects the matching account,
+  and only then can assign a new badge. There is no free-form role editing.
+- Marketplace admins do not see the badge controls; they can still manage
+  listings and orders.
 - The primary admin account is protected by a database trigger and cannot be
   demoted.
 - Profile photos are stored in this browser only and are never uploaded.

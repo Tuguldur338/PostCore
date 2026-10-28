@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Search, ShieldCheck } from "@/components/icons";
 
 type DirectoryResponse = {
   message?: string;
@@ -54,97 +55,81 @@ export function AdminEmailDirectory() {
   if (emails === null && !error) return null;
 
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.25)] sm:p-8">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">
-          ADMIN only
-        </p>
-        <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-          Registered email addresses
-        </h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
-          Passwords are private and cannot be viewed; reset emails are the safe
-          way to recover an account.
-        </p>
+    <section className="rounded-2xl border border-line bg-surface p-5 sm:p-7">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-soft text-[#7a5412]">
+          <ShieldCheck size={19} />
+        </span>
+        <div>
+          <p className="font-mono text-[0.6rem] font-semibold uppercase tracking-[0.16em] text-accent-strong">
+            Admin only
+          </p>
+          <h2 className="mt-1 font-display text-2xl tracking-tight text-ink">
+            Registered accounts
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            Passwords are private and cannot be viewed. Use account recovery
+            emails to help someone back in.
+          </p>
+        </div>
       </div>
+
       {error ? (
         <p
           role="alert"
-          className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800"
+          className="mt-5 rounded-xl border border-rose/25 bg-rose-soft px-3.5 py-2.5 text-sm text-rose"
         >
           {error}
         </p>
       ) : emails?.length ? (
         <>
-          <label
-            htmlFor="admin-email-search"
-            className="mt-5 block text-sm font-semibold text-slate-700"
-          >
-            Search registered emails
-          </label>
-          <div className="relative mt-2">
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400"
-            >
-              <circle
-                cx="10.8"
-                cy="10.8"
-                r="6.8"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              />
-              <path
-                d="m16 16 4.2 4.2"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="1.8"
-              />
-            </svg>
+          <div className="relative mt-5">
+            <label htmlFor="admin-email-search" className="sr-only">
+              Search registered emails
+            </label>
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+            />
             <input
               id="admin-email-search"
               type="search"
               autoComplete="off"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Type an email address"
-              className="h-12 w-full rounded-xl border border-slate-300 bg-white pl-12 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-orange-300 focus:border-orange-500 focus:ring-4 focus:ring-orange-100"
+              placeholder="Search by email address"
+              className="field pl-9"
             />
           </div>
-          <p
-            className="mt-2 text-xs font-medium text-slate-500"
-            aria-live="polite"
-          >
+          <p className="mt-2 text-[0.72rem] font-medium text-muted" aria-live="polite">
             Showing {displayedEmails.length} of {matchingEmails.length}{" "}
             {matchingEmails.length === 1 ? "matching email" : "matching emails"}
           </p>
           {displayedEmails.length ? (
-            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
               {displayedEmails.map((email) => (
                 <li
                   key={email}
-                  className="break-all rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-800"
+                  className="break-all rounded-lg border border-line bg-surface-2 px-3 py-2 font-mono text-[0.72rem] text-ink-soft"
                 >
                   {email}
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+            <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2.5 text-sm text-muted">
               No registered email matches that search.
             </p>
           )}
           {matchingEmails.length > displayedEmails.length ? (
-            <p className="mt-3 text-xs text-slate-500">
-              Refine your search to narrow down the results. A maximum of 10
-              email addresses are shown at a time.
+            <p className="mt-2 text-[0.7rem] text-muted">
+              A maximum of 10 addresses are shown at a time. Refine the search to
+              narrow the list.
             </p>
           ) : null}
         </>
       ) : (
-        <p className="mt-5 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+        <p className="mt-5 rounded-lg bg-surface-2 px-3 py-2.5 text-sm text-muted">
           No registered email addresses were found.
         </p>
       )}

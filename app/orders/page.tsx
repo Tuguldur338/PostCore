@@ -1,15 +1,27 @@
-import { Footer } from "@/components/footer";
-import { Header } from "@/components/header";
-import { OrdersDashboard } from "./orders-dashboard";
+import type { Metadata } from "next";
+import { OrdersGate } from "@/components/orders-gate";
+import { PageHeader } from "@/components/page-header";
+import { PageShell } from "@/components/page-shell";
+
+export const metadata: Metadata = {
+  title: "Order desk",
+  description: "Review PostCore purchase requests and update order status.",
+  robots: { index: false, follow: false },
+};
 
 export default function OrdersPage() {
   return (
-    <div className="site-shell min-h-screen p-4 text-slate-800 sm:p-6 lg:p-8">
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <Header />
-        <OrdersDashboard />
-        <Footer />
-      </main>
-    </div>
+    <PageShell>
+      <PageHeader
+        eyebrow="Admin workspace"
+        title={
+          <>
+            The order <span className="display-italic">desk.</span>
+          </>
+        }
+        description="Review every purchase request, mark a hand-off as complete, and manage marketplace roles. Sign in with an admin account to begin."
+      />
+      <OrdersGate />
+    </PageShell>
   );
 }

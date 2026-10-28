@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { useAuth } from "@/components/auth-provider";
 import { formatMntPrice, parseMntAmount } from "@/components/currency";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSupabaseConfig } from "@/lib/supabase/config";
@@ -52,6 +53,7 @@ export function OrdersDashboard() {
   const [busyOrderId, setBusyOrderId] = useState("");
   const [busyUserId, setBusyUserId] = useState("");
   const [error, setError] = useState("");
+  const { signOut } = useAuth();
   const supabaseConfigured = Boolean(getSupabaseConfig());
   const normalizedOrderCodeSearch = orderCodeSearch.trim().toUpperCase();
   const matchingOrders = normalizedOrderCodeSearch
@@ -162,9 +164,9 @@ export function OrdersDashboard() {
 
   const handleLogout = async () => {
     setError("");
-    const { error: signOutError } =
-      await createSupabaseBrowserClient().auth.signOut();
-    if (signOutError) {
+    try {
+      await signOut();
+    } catch {
       setError("Could not sign out. Please try again.");
       return;
     }
@@ -269,16 +271,16 @@ export function OrdersDashboard() {
   };
 
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_20px_60px_-20px_rgba(15,23,42,0.25)] sm:p-8">
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-[var(--shadow-sm)] sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-orange-600">
+          <p className="font-mono text-[0.62rem] font-semibold uppercase tracking-[0.18em] text-accent-strong">
             {role === "admin" ? "ADMIN" : "Marketplace admin"}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold text-slate-900">
+          <h2 className="mt-2 font-display text-3xl tracking-[-0.025em] text-ink">
             Purchase requests
-          </h1>
-          <p className="mt-2 text-slate-600">
+          </h2>
+          <p className="mt-2 text-sm text-muted">
             Review new orders, mark them completed, or remove them.
           </p>
         </div>
@@ -286,7 +288,7 @@ export function OrdersDashboard() {
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            className="btn btn-secondary btn-sm"
           >
             Sign out
           </button>
@@ -296,14 +298,17 @@ export function OrdersDashboard() {
       {error ? (
         <p
           role="alert"
-          className="mt-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+          className="mt-5 rounded-xl border border-rose/25 bg-rose-soft p-3 text-sm text-rose"
         >
           {error}
         </p>
       ) : null}
 
       {isLoading ? (
-        <p className="mt-8 text-sm text-slate-600">Loading orders...</p>
+        <div className="mt-8 flex items-center gap-2 text-sm text-muted">
+          <span className="skeleton h-4 w-4 rounded-full" />
+          Loading orders…
+        </div>
       ) : isSignedIn ? (
         <>
           <div className="mt-6 rounded-2xl border border-orange-100 bg-orange-50/70 p-4 sm:p-5">

@@ -36,8 +36,8 @@ export function OrdersGate() {
             The order desk is for admins.
           </h2>
           <p className="mt-3 max-w-md text-sm leading-6 text-muted">
-            Sign in with the account a marketplace admin assigned to you to review
-            requests, update hand-offs, and manage the shelves.
+            Sign in with the account an ADMIN assigned to you to review requests,
+            update hand-offs, and manage the shelves.
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
             <Link href="/signin?next=/orders" className="btn btn-primary">
@@ -67,7 +67,7 @@ export function OrdersGate() {
             <li className="flex items-start gap-3">
               <Users size={18} className="mt-0.5 text-pine" />
               <p className="text-sm leading-6 text-ink-soft">
-                Marketplace admins can assign student and admin badges.
+                Only the ADMIN account can assign or change account badges.
               </p>
             </li>
           </ul>

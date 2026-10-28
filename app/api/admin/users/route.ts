@@ -76,9 +76,12 @@ export async function PATCH(request: Request) {
     );
   }
 
-  if (role !== "admin" && body.role === "admin") {
+  if (role !== "admin") {
     return Response.json(
-      { message: "Only ADMINs can assign the ADMIN badge." },
+      {
+        message:
+          "Only the ADMIN account can change marketplace roles, including Marketplace Admin and ADMIN badges.",
+      },
       { status: 403 },
     );
   }

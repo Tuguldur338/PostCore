@@ -138,17 +138,19 @@ create policy "Users and marketplace admins can view marketplace profiles"
     or (select public.is_marketplace_admin())
   );
 
-drop policy if exists "Platform admins can assign marketplace roles" on public.marketplace_profiles;
 drop policy if exists "Marketplace admins can assign marketplace roles" on public.marketplace_profiles;
-create policy "Marketplace admins can assign marketplace roles"
+drop policy if exists "Platform admins can assign marketplace roles" on public.marketplace_profiles;
+-- Only the platform ADMIN can change a marketplace role. Marketplace admins
+-- can read profiles and manage orders, but cannot promote or demote accounts.
+create policy "Platform admins can assign marketplace roles"
   on public.marketplace_profiles for update
   to authenticated
   using (
-    (select public.is_marketplace_admin())
+    (select public.is_platform_admin())
     and user_id <> (select auth.uid())
   )
   with check (
-    (select public.is_marketplace_admin())
+    (select public.is_platform_admin())
     and user_id <> (select auth.uid())
   );
 

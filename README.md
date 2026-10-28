@@ -57,7 +57,9 @@ npm install
 ### 2. Create a Supabase project
 
 Run [`supabase/schema.sql`](./supabase/schema.sql) in the Supabase SQL Editor.
-The script is safe to re-run. It creates:
+The script is safe to re-run. **Re-run it after this update even if the project
+was already set up**: the role-change policy now requires the platform ADMIN.
+It creates:
 
 - `marketplace_profiles`, with `student`, `marketplace_admin`, and `admin` roles
 - the shared `products` catalog, with atomic stock deduction
@@ -107,9 +109,11 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - Students can browse, save, and request items.
 - **Marketplace admins** can add listings, edit stock, mark items unavailable,
-  remove listings, and manage orders.
-- The **ADMIN** account can also assign roles and view the registered-account
-  directory on `/account`.
+  remove listings, and manage orders. They cannot change anyone's marketplace
+  role or badge.
+- The **ADMIN** account is the only account that can assign or change
+  `student`, `marketplace_admin`, and `admin` roles, and it can view the
+  registered-account directory on `/account`.
 - The primary admin account is protected by a database trigger and cannot be
   demoted.
 - Profile photos are stored in this browser only and are never uploaded.

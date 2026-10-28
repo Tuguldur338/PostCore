@@ -181,6 +181,10 @@ export function OrdersDashboard() {
     nextRole: MarketplaceRole,
   ) => {
     setError("");
+    if (role !== "admin") {
+      setError("Only the ADMIN account can change marketplace roles.");
+      return;
+    }
     setBusyUserId(account.user_id);
     try {
       const response = await fetch("/api/admin/users", {
@@ -508,15 +512,17 @@ export function OrdersDashboard() {
       {isSignedIn && role ? (
         <section className="mt-8 border-t border-slate-200 pt-8">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-700">
-            {role === "admin" ? "ADMIN controls" : "Marketplace Admin controls"}
+            {role === "admin"
+              ? "ADMIN controls"
+              : "Marketplace Admin · read-only badges"}
           </p>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">
             Marketplace account badges
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Assign badges to other registered accounts. Only ADMINs can assign
-            the ADMIN badge; the primary ADMIN account is protected from badge
-            changes.
+            {role === "admin"
+              ? "Assign badges to other registered accounts. Only the ADMIN account can change a role, and the primary ADMIN account is protected from badge changes."
+              : "Only the ADMIN account can change a marketplace badge. You can review registered accounts here, but role editing is locked."}
           </p>
           {accounts.length ? (
             <div className="mt-5 grid gap-3">
@@ -538,11 +544,17 @@ export function OrdersDashboard() {
                     <span className="relative">
                       <select
                         value={account.role}
+                        aria-label={`Marketplace badge for ${account.email}`}
+                        title={
+                          role === "admin"
+                            ? "Change this account's marketplace badge"
+                            : "Only the ADMIN account can change marketplace badges."
+                        }
                         disabled={
+                          role !== "admin" ||
                           busyUserId === account.user_id ||
                           account.email.toLowerCase() ===
-                            "tuguldur09252@gmail.com" ||
-                          (role !== "admin" && account.role === "admin")
+                            "tuguldur09252@gmail.com"
                         }
                         onChange={(event) => {
                           const nextRole = event.currentTarget.value;
@@ -556,9 +568,7 @@ export function OrdersDashboard() {
                         <option value="marketplace_admin">
                           Marketplace Admin
                         </option>
-                        <option value="admin" disabled={role !== "admin"}>
-                          ADMIN
-                        </option>
+                        <option value="admin">ADMIN</option>
                       </select>
                       <svg
                         aria-hidden="true"

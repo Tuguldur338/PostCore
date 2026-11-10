@@ -30,6 +30,9 @@ pickup-coordination tool, not a payment processor.
 - **Light and dark themes.** Both driven by the same semantic design tokens.
 - **Mobile-first navigation.** Sticky search header, full-screen menu, and
   touch-friendly controls.
+- **Installable PWA.** Add PostCore to a supported device from the install
+  prompt. Offline navigation shows a fallback page; account and marketplace
+  data are not cached.
 - **Accessible interactions.** Focus-trapped dialogs, Escape handling, labelled
   controls, reduced-motion support, and a skip link.
 

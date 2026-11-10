@@ -19,6 +19,11 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { User as MarketplaceUser } from "@/components/types";
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
+};
+
 const navLinks = [
   { href: "/products", label: "Shop" },
   { href: "/sell", label: "Sell" },
@@ -74,6 +79,41 @@ export function SiteHeader() {
   const searchRef = useRef<HTMLInputElement>(null);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
+  const [installPrompt, setInstallPrompt] =
+    useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    const handleAppInstalled = () => setInstallPrompt(null);
+
+    window.addEventListener(
+      "beforeinstallprompt",
+      handleBeforeInstallPrompt,
+    );
+    window.addEventListener("appinstalled", handleAppInstalled);
+    return () => {
+      window.removeEventListener(
+        "beforeinstallprompt",
+        handleBeforeInstallPrompt,
+      );
+      window.removeEventListener("appinstalled", handleAppInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (!installPrompt) return;
+
+    try {
+      await installPrompt.prompt();
+      await installPrompt.userChoice;
+      setInstallPrompt(null);
+    } catch (error) {
+      console.error("Unable to show the PostCore install prompt.", error);
+    }
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -240,6 +280,16 @@ export function SiteHeader() {
           >
             <Search size={18} />
           </button>
+
+          {installPrompt ? (
+            <button
+              type="button"
+              onClick={installApp}
+              className="btn btn-secondary btn-sm hidden md:inline-flex"
+            >
+              Install app
+            </button>
+          ) : null}
 
           <ThemeToggle className="hidden sm:inline-flex" />
 
@@ -439,6 +489,15 @@ export function SiteHeader() {
               <span className="text-sm font-medium text-ink-soft">Appearance</span>
               <ThemeToggle />
             </div>
+            {installPrompt ? (
+              <button
+                type="button"
+                onClick={installApp}
+                className="btn btn-primary mt-3 w-full"
+              >
+                Install PostCore
+              </button>
+            ) : null}
               </div>
             </div>,
             document.body,
